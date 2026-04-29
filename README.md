@@ -96,20 +96,20 @@ N-body force calculation is O(n²). Performance degrades above ~500-1000 particl
 git clone https://github.com/gojrs/grav-charge-sim
 cd grav-charge-sim
 
-# Copy WASM runtime
-make copy-wasm
-
-# Build simulation
-make build-wasm
-
-# Start server
+# Build + run (defaults to localhost:8088)
 make run
 
 # Open browser
-open http://localhost:8080
+open http://localhost:8088
 ```
 
-Requires Go 1.21+.
+The server port is controlled by the `PORT` environment variable. It defaults to `80` in production and `8088` via `make run` locally. Override it however you like:
+
+```bash
+PORT=9000 go run main.go
+```
+
+Requires Go 1.24+.
 
 ---
 

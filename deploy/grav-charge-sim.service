@@ -4,6 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
+Environment=PORT=80
 ExecStart=/opt/grav-charge-sim/grav-charge-sim
 Restart=on-failure
 RestartSec=5
