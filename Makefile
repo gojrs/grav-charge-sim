@@ -16,7 +16,7 @@ run: build-wasm copy-wasm
 
 # ----- deploy ----------------------------------------------------------
 
-DEPLOY_HOST ?= 137.184.244.80
+DEPLOY_HOST ?= gsim.vdisknow.com
 DEPLOY_USER ?= root
 DEPLOY_DIR  ?= /opt/grav-charge-sim
 BINARY      := grav-charge-sim
