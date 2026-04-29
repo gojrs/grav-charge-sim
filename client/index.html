@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Gravitational Charge Simulation</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0f;
+      color: #d0d0e0;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #top-bar {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 8px 16px;
+      background: #12121e;
+      border-bottom: 1px solid #2a2a44;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    #top-bar h1 {
+      font-size: 13px;
+      color: #8080c0;
+      white-space: nowrap;
+      margin-right: 8px;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    button {
+      background: #1e1e38;
+      color: #c0c0e0;
+      border: 1px solid #3a3a60;
+      padding: 4px 12px;
+      cursor: pointer;
+      font-family: monospace;
+      font-size: 12px;
+      border-radius: 3px;
+    }
+    button:hover { background: #2a2a50; }
+    button.active { background: #2a2a60; border-color: #6060c0; color: #a0a0ff; }
+
+    label { color: #8080a0; cursor: pointer; }
+
+    input[type=checkbox] {
+      accent-color: #6060c0;
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+    }
+
+    input[type=range] {
+      width: 90px;
+      accent-color: #6060c0;
+    }
+
+    span.val { color: #c0c0ff; min-width: 28px; display: inline-block; }
+
+    #stats-bar {
+      display: flex;
+      gap: 24px;
+      padding: 5px 16px;
+      background: #0e0e18;
+      border-bottom: 1px solid #1e1e30;
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+
+    .stat { display: flex; gap: 6px; }
+    .stat-label { color: #505070; }
+    .stat-matter    { color: #6699ff; }
+    .stat-anti      { color: #ff6666; }
+    .stat-annihilated { color: #ffaa44; }
+    .stat-steps     { color: #808080; }
+
+    #canvas-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    #sim-canvas {
+      display: block;
+      /* size set by JS to fill available space */
+    }
+
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #6060a0;
+      font-size: 14px;
+    }
+
+    /* Footer */
+    #footer {
+      flex-shrink: 0;
+      text-align: center;
+      padding: 5px 16px;
+      background: #0a0a0f;
+      border-top: 1px solid #1a1a2a;
+      font-size: 10px;
+      color: #404058;
+    }
+    #footer a {
+      color: #505078;
+      text-decoration: none;
+    }
+    #footer a:hover { color: #8080b0; text-decoration: underline; }
+
+    /* About button pushed to right end of top-bar */
+    #btn-about-wrap { margin-left: auto; }
+
+    /* Modal overlay */
+    #modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.72);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    #modal-overlay.open { display: flex; }
+
+    .modal-card {
+      background: #14141f;
+      border: 1px solid #2e2e50;
+      border-radius: 6px;
+      padding: 28px 32px 24px;
+      max-width: 520px;
+      width: 90%;
+      position: relative;
+      color: #c0c0d8;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+    .modal-card h2 {
+      font-size: 14px;
+      color: #9090d0;
+      margin-bottom: 14px;
+      font-weight: normal;
+    }
+    .modal-card p { margin-bottom: 14px; }
+    .modal-card p:last-of-type { margin-bottom: 20px; }
+    .modal-links {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 11px;
+      border-top: 1px solid #2a2a40;
+      padding-top: 14px;
+    }
+    .modal-links a {
+      color: #6688cc;
+      text-decoration: none;
+    }
+    .modal-links a:hover { color: #99aaee; text-decoration: underline; }
+    .modal-close {
+      position: absolute;
+      top: 10px;
+      right: 14px;
+      background: none;
+      border: none;
+      color: #505070;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+    .modal-close:hover { background: #1e1e38; color: #c0c0e0; }
+  </style>
+</head>
+<body>
+
+<div id="top-bar">
+  <h1>Grav-Charge Sim</h1>
+
+  <div class="control-group">
+    <button id="btn-play" class="active">Pause</button>
+    <button id="btn-reset">Reset</button>
+  </div>
+
+  <div class="control-group">
+    <label>Speed</label>
+    <input type="range" id="speed" min="1" max="10" value="1">
+    <span class="val" id="speed-val">1×</span>
+  </div>
+
+  <div class="control-group">
+    <label>Particles</label>
+    <input type="range" id="count" min="50" max="2000" step="50" value="500">
+    <span class="val" id="count-val">500</span>
+  </div>
+
+  <div class="control-group">
+    <label>Dot size</label>
+    <input type="range" id="dot-size" min="1" max="6" value="2">
+    <span class="val" id="dot-val">2</span>
+  </div>
+
+  <div class="control-group">
+    <label for="density-toggle">Density grid</label>
+    <input type="checkbox" id="density-toggle" checked>
+  </div>
+
+  <div class="control-group">
+    <label>Grid res</label>
+    <input type="range" id="grid-res" min="5" max="40" step="5" value="20">
+    <span class="val" id="grid-val">20</span>
+  </div>
+
+  <div class="control-group" id="btn-about-wrap">
+    <button id="btn-about">About</button>
+  </div>
+</div>
+
+<div id="stats-bar">
+  <div class="stat"><span class="stat-label">Matter:</span><span class="stat-matter" id="s-matter">—</span></div>
+  <div class="stat"><span class="stat-label">Antimatter:</span><span class="stat-anti" id="s-anti">—</span></div>
+  <div class="stat"><span class="stat-label">Annihilated pairs:</span><span class="stat-annihilated" id="s-ann">—</span></div>
+  <div class="stat"><span class="stat-label">Steps:</span><span class="stat-steps" id="s-steps">—</span></div>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="sim-canvas"></canvas>
+  <div id="loading">Loading WASM…</div>
+</div>
+
+<!-- About modal -->
+<div id="modal-overlay" role="dialog" aria-modal="true" aria-label="About this simulation">
+  <div class="modal-card">
+    <button class="modal-close" id="modal-close" aria-label="Close">&times;</button>
+    <h2>Gravitational Charge Simulation</h2>
+    <p>
+      This simulation tests a cosmological conjecture: that matter and antimatter
+      carry opposite gravitational charges. Under this modified gravity, matter
+      attracts matter and antimatter attracts antimatter — but matter and antimatter
+      repel each other.
+    </p>
+    <p>
+      Starting from a random mixed distribution, the repulsion between opposite-charge
+      particles drives natural domain separation. Annihilation events occur only at
+      the shrinking boundaries between domains, leaving a small residue that the
+      conjecture predicts should approach roughly one-in-a-billion at cosmological scales.
+    </p>
+    <p>
+      The entire physics modification is a single sign change: <code>F = G·m₁·m₂·q₁·q₂ / r²</code>
+      where q = +1 for matter and −1 for antimatter.
+    </p>
+    <div class="modal-links">
+      <a href="https://zenodo.org/records/19839829" target="_blank" rel="noopener noreferrer">
+        Zenodo — Gravitational Charge Conjugation and the Large-Scale Structure of the Universe
+      </a>
+      <a href="https://github.com/gojrs/grav-charge-sim" target="_blank" rel="noopener noreferrer">
+        GitHub — gojrs/grav-charge-sim
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer id="footer">
+  Based on the conjecture:
+  <a href="https://zenodo.org/records/19839829" target="_blank" rel="noopener noreferrer">
+    Gravitational Charge Conjugation and the Large-Scale Structure of the Universe
+  </a>
+</footer>
+
+<script src="wasm_exec.js"></script>
+<script src="main.js"></script>
+<script>
+  const overlay   = document.getElementById("modal-overlay");
+  const btnAbout  = document.getElementById("btn-about");
+  const btnClose  = document.getElementById("modal-close");
+
+  btnAbout.addEventListener("click", () => overlay.classList.add("open"));
+  btnClose.addEventListener("click", () => overlay.classList.remove("open"));
+  // Click outside the card to dismiss.
+  overlay.addEventListener("click", e => {
+    if (e.target === overlay) overlay.classList.remove("open");
+  });
+  // Escape key to dismiss.
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") overlay.classList.remove("open");
+  });
+</script>
+</body>
+</html>
