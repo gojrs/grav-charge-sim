@@ -1,0 +1,14 @@
+[Unit]
+Description=Gravitational Charge Simulation (gsim.vdisknow.com)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/grav-charge-sim/grav-charge-sim
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
