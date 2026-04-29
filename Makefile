@@ -12,7 +12,7 @@ copy-wasm:
 
 # embed requires sim.wasm + wasm_exec.js to be present at build time
 run: build-wasm copy-wasm
-	go run main.go
+	PORT=8088 go run main.go
 
 # ----- deploy ----------------------------------------------------------
 

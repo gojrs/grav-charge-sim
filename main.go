@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
 )
 
 //go:embed client
@@ -15,7 +16,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "80"
+	}
+
 	http.Handle("/", http.FileServer(http.FS(sub)))
-	log.Println("Serving at http://localhost:8088")
-	log.Fatal(http.ListenAndServe(":8088", nil))
+	log.Printf("Serving at http://localhost:%s", port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
