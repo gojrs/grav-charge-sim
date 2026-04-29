@@ -35,20 +35,14 @@ deploy: build-linux
 	@echo "Deployed to http://gsim.vdisknow.com"
 
 # One-time setup on a fresh Debian/Ubuntu droplet.
-# Installs nginx, drops service + nginx configs, enables everything.
+# Creates the app directory, installs the systemd unit, and enables it.
+# The DO load balancer forwards :80 → droplet:8088 directly — no nginx needed.
 # Run once, then use `make deploy` for all subsequent updates.
 setup-server:
-	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "apt-get update -qq && apt-get install -y -qq nginx"
 	scp deploy/grav-charge-sim.service \
 		$(DEPLOY_USER)@$(DEPLOY_HOST):/etc/systemd/system/grav-charge-sim.service
-	scp deploy/nginx.conf \
-		$(DEPLOY_USER)@$(DEPLOY_HOST):/etc/nginx/sites-available/grav-charge-sim
 	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) " \
 		mkdir -p $(DEPLOY_DIR) && \
-		ln -sf /etc/nginx/sites-available/grav-charge-sim \
-		        /etc/nginx/sites-enabled/grav-charge-sim && \
-		rm -f /etc/nginx/sites-enabled/default && \
-		nginx -t && systemctl reload nginx && \
 		systemctl daemon-reload && \
 		systemctl enable grav-charge-sim"
 	@echo "Server ready. Run 'make deploy' to push the first binary."
