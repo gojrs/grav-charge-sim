@@ -48,12 +48,12 @@ func New(cfg Config) *Simulation {
 			Position: Vector3{
 				X: (rand.Float64()*2 - 1) * half,
 				Y: (rand.Float64()*2 - 1) * half,
-				Z: (rand.Float64()*2 - 1) * half,
+				Z: 0, // 2D simulation; octree + 3D mode is a future extension
 			},
 			Velocity: Vector3{
 				X: (rand.Float64()*2 - 1) * cfg.MaxSpeed,
 				Y: (rand.Float64()*2 - 1) * cfg.MaxSpeed,
-				Z: (rand.Float64()*2 - 1) * cfg.MaxSpeed,
+				Z: 0,
 			},
 			Mass:    cfg.ParticleMass,
 			GCharge: charge,
@@ -64,18 +64,17 @@ func New(cfg Config) *Simulation {
 }
 
 // Step advances the simulation by dt seconds using a simple Euler integrator.
-// It accumulates forces O(N²), integrates velocities and positions, then
-// removes any matter/antimatter pairs that have come within AnnihilationRadius.
+// Forces are computed O(N log N) via Barnes-Hut quadtree, then positions are
+// integrated and opposite-charge pairs within AnnihilationRadius are removed.
 func (s *Simulation) Step(dt float64) {
 	n := len(s.Particles)
 	forces := make([]Vector3, n)
 
-	// Accumulate pairwise forces.
-	for i := 0; i < n; i++ {
-		for j := i + 1; j < n; j++ {
-			f := gravitationalForce(s.Particles[i], s.Particles[j], s.cfg.BoxSize)
-			forces[i] = forces[i].Add(f)
-			forces[j] = forces[j].Add(f.Scale(-1)) // Newton's third law
+	// Build quadtree and compute forces — O(N log N).
+	if n > 0 {
+		root := buildTree(s.Particles, s.cfg.BoxSize)
+		for i := range s.Particles {
+			forces[i] = root.force(&s.Particles[i], s.cfg.BoxSize)
 		}
 	}
 

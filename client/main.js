@@ -39,7 +39,7 @@ function simToCanvas(x, y) {
 let running         = true;
 let stepsPerFrame   = 1;    // controlled by speed slider
 let dotRadius       = 2;    // controlled by dot-size slider
-let particleCount   = 500;
+let particleCount   = 1000;
 let showDensityGrid = true;
 let gridCells       = 20;   // N×N grid resolution
 
