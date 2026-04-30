@@ -16,7 +16,8 @@ import (
 // ---------------------------------------------------------------------------
 
 type Config struct {
-	NtfyTopic            string `json:"ntfy_topic"`
+	NotifyTopic          string `json:"notify_topic"`
+	SystemTopic          string `json:"system_topic"`
 	GitHubToken          string `json:"github_token"`
 	ZenodoToken          string `json:"zenodo_token"`
 	CheckIntervalMinutes int    `json:"check_interval_minutes"`
@@ -71,10 +72,13 @@ func saveState(s State) {
 // Notifications via ntfy.sh
 // ---------------------------------------------------------------------------
 
-func notify(cfg Config, title, message string) {
-	req, err := http.NewRequest("POST", "https://ntfy.sh/"+cfg.NtfyTopic, strings.NewReader(message))
+func ntfy(topic, title, message string) {
+	if topic == "" {
+		return
+	}
+	req, err := http.NewRequest("POST", "https://ntfy.sh/"+topic, strings.NewReader(message))
 	if err != nil {
-		log.Printf("notify build request: %v", err)
+		log.Printf("ntfy build request: %v", err)
 		return
 	}
 	req.Header.Set("Title", title)
@@ -82,11 +86,19 @@ func notify(cfg Config, title, message string) {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Printf("notify send: %v", err)
+		log.Printf("ntfy send: %v", err)
 		return
 	}
 	resp.Body.Close()
-	log.Printf("notified — %s: %s", title, message)
+	log.Printf("notified [%s] — %s: %s", topic, title, message)
+}
+
+func notify(cfg Config, title, message string) {
+	ntfy(cfg.NotifyTopic, title, message)
+}
+
+func notifySys(cfg Config, title, message string) {
+	ntfy(cfg.SystemTopic, title, message)
 }
 
 // ---------------------------------------------------------------------------
@@ -189,6 +201,7 @@ func check(cfg Config, state *State) {
 	// Reddit — r/AskPhysics
 	if n, title, err := fetchRedditComments(redditAskPhysics); err != nil {
 		log.Printf("reddit askphysics: %v", err)
+		notifySys(cfg, "Reddit API error (r/AskPhysics)", err.Error())
 	} else if n > state.AskPhysicsComments {
 		notify(cfg, "New comment on r/AskPhysics",
 			fmt.Sprintf("%d comments (was %d) — %s", n, state.AskPhysicsComments, title))
@@ -198,6 +211,7 @@ func check(cfg Config, state *State) {
 	// Reddit — r/HypotheticalPhysics
 	if n, title, err := fetchRedditComments(redditHypothetical); err != nil {
 		log.Printf("reddit hypothetical: %v", err)
+		notifySys(cfg, "Reddit API error (r/HypotheticalPhysics)", err.Error())
 	} else if n > state.HypotheticalComments {
 		notify(cfg, "New comment on r/HypotheticalPhysics",
 			fmt.Sprintf("%d comments (was %d) — %s", n, state.HypotheticalComments, title))
@@ -207,6 +221,7 @@ func check(cfg Config, state *State) {
 	// GitHub stars
 	if stars, err := fetchGitHubStars(cfg.GitHubToken); err != nil {
 		log.Printf("github: %v", err)
+		notifySys(cfg, "GitHub API error", err.Error())
 	} else if stars > state.GitHubStars {
 		notify(cfg, "New GitHub star ⭐",
 			fmt.Sprintf("grav-charge-sim now has %d stars (was %d)", stars, state.GitHubStars))
@@ -216,6 +231,7 @@ func check(cfg Config, state *State) {
 	// Zenodo views
 	if views, err := fetchZenodoViews(cfg.ZenodoToken); err != nil {
 		log.Printf("zenodo: %v", err)
+		notifySys(cfg, "Zenodo API error", err.Error())
 	} else if views > state.ZenodoViews {
 		notify(cfg, "New Zenodo views",
 			fmt.Sprintf("Record 19839829 now has %d views (was %d)", views, state.ZenodoViews))
@@ -236,7 +252,10 @@ func main() {
 	cfg := loadConfig("config.json")
 	state := loadState()
 
-	log.Printf("notifier starting — interval %d min, topic %s", cfg.CheckIntervalMinutes, cfg.NtfyTopic)
+	log.Printf("notifier starting — interval %d min, notify=%s sys=%s",
+		cfg.CheckIntervalMinutes, cfg.NotifyTopic, cfg.SystemTopic)
+
+	notifySys(cfg, "Notifier started", fmt.Sprintf("interval %d min", cfg.CheckIntervalMinutes))
 
 	// Run immediately on start, then on each tick.
 	check(cfg, &state)
