@@ -104,7 +104,7 @@ const ANTIMATTER_COLOR = "#ff4444"; // red
 // charge dominates. Dominance = (matter − antimatter) / total ∈ [−1, +1].
 // Pure matter → blue, pure antimatter → red, equal → transparent.
 function drawDensityGrid(particles) {
-  const stride = 3;
+  const stride = 4;
   const n      = particles.length / stride;
   const cells  = gridCells;
   const size   = cells * cells;
@@ -171,18 +171,21 @@ function draw(particles) {
   ctx.lineTo(canvas.width, canvas.height / 2);
   ctx.stroke();
 
-  // Flat array layout: [x, y, gcharge,  x, y, gcharge, ...]
-  const stride = 3;
-  const n      = particles.length / stride;
+  // Flat array layout: [x, y, gcharge, mass,  x, y, gcharge, mass, ...]
+  const stride  = 4;
+  const n       = particles.length / stride;
+  // Dot radius scales with sqrt(mass): area proportional to mass, unchanged at mass=1.
+  const MAX_DOT = dotRadius * 12;
 
-  // Batch by color to minimise fillStyle switches.
+  // Batch by colour to minimise fillStyle switches.
   ctx.fillStyle = MATTER_COLOR;
   ctx.beginPath();
   for (let i = 0; i < n; i++) {
-    if (particles[i * stride + 2] > 0) { // gcharge > 0 → matter
+    if (particles[i * stride + 2] > 0) {
+      const r = Math.min(MAX_DOT, dotRadius * Math.sqrt(particles[i * stride + 3]));
       const [cx, cy] = simToCanvas(particles[i * stride], particles[i * stride + 1]);
-      ctx.moveTo(cx + dotRadius, cy);
-      ctx.arc(cx, cy, dotRadius, 0, Math.PI * 2);
+      ctx.moveTo(cx + r, cy);
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
     }
   }
   ctx.fill();
@@ -190,10 +193,11 @@ function draw(particles) {
   ctx.fillStyle = ANTIMATTER_COLOR;
   ctx.beginPath();
   for (let i = 0; i < n; i++) {
-    if (particles[i * stride + 2] < 0) { // gcharge < 0 → antimatter
+    if (particles[i * stride + 2] < 0) {
+      const r = Math.min(MAX_DOT, dotRadius * Math.sqrt(particles[i * stride + 3]));
       const [cx, cy] = simToCanvas(particles[i * stride], particles[i * stride + 1]);
-      ctx.moveTo(cx + dotRadius, cy);
-      ctx.arc(cx, cy, dotRadius, 0, Math.PI * 2);
+      ctx.moveTo(cx + r, cy);
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
     }
   }
   ctx.fill();
@@ -205,6 +209,7 @@ function draw(particles) {
 const sMatter = document.getElementById("s-matter");
 const sAnti   = document.getElementById("s-anti");
 const sAnn    = document.getElementById("s-ann");
+const sMerged = document.getElementById("s-merged");
 const sSteps  = document.getElementById("s-steps");
 
 function updateStats() {
@@ -212,6 +217,7 @@ function updateStats() {
   sMatter.textContent = st.matter;
   sAnti.textContent   = st.antimatter;
   sAnn.textContent    = st.annihilated;
+  sMerged.textContent = st.merged;
   sSteps.textContent  = st.steps;
 }
 

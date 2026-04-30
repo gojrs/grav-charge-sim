@@ -5,7 +5,10 @@ import (
 	"math/rand"
 )
 
-const AnnihilationRadius = 3.0 // particles closer than this annihilate
+const (
+	AnnihilationRadius = 3.0 // opposite-charge pairs closer than this annihilate
+	MergeRadius        = 5.0 // same-charge pairs closer than this merge
+)
 
 // Config holds the initial conditions for a simulation run.
 type Config struct {
@@ -27,10 +30,11 @@ func DefaultConfig() Config {
 
 // Simulation holds all live particles and running counters.
 type Simulation struct {
-	Particles        []Particle
+	Particles         []Particle
 	AnnihilationCount int
-	StepCount        int
-	cfg              Config
+	MergeCount        int
+	StepCount         int
+	cfg               Config
 }
 
 // New creates a simulation with cfg.N particles placed randomly inside the box,
@@ -86,6 +90,7 @@ func (s *Simulation) Step(dt float64) {
 	}
 
 	s.annihilate()
+	s.merge()
 	s.StepCount++
 }
 
@@ -118,6 +123,58 @@ func (s *Simulation) annihilate() {
 	}
 
 	// Compact the slice, removing dead particles.
+	live := s.Particles[:0]
+	for i, p := range s.Particles {
+		if !dead[i] {
+			live = append(live, p)
+		}
+	}
+	s.Particles = live
+}
+
+// merge combines same-charge pairs that are within MergeRadius of each other.
+// The result has combined mass, momentum-conserving velocity, and a
+// mass-weighted position computed via minimum image (handles toroidal wrap).
+// This simulates gravitational collapse within matter and antimatter domains.
+func (s *Simulation) merge() {
+	n := len(s.Particles)
+	dead := make([]bool, n)
+
+	for i := 0; i < n; i++ {
+		if dead[i] {
+			continue
+		}
+		for j := i + 1; j < n; j++ {
+			if dead[j] {
+				continue
+			}
+			// Only same-charge particles merge.
+			if s.Particles[i].GCharge != s.Particles[j].GCharge {
+				continue
+			}
+			diff := minImage(s.Particles[i].Position.Sub(s.Particles[j].Position), s.cfg.BoxSize)
+			if diff.Length() >= MergeRadius {
+				continue
+			}
+
+			pi := &s.Particles[i]
+			pj := &s.Particles[j]
+			totalMass := pi.Mass + pj.Mass
+
+			// Momentum-conserving velocity (uses original masses).
+			pi.Velocity = pi.Velocity.Scale(pi.Mass / totalMass).Add(pj.Velocity.Scale(pj.Mass / totalMass))
+
+			// Mass-weighted position via minimum image so wrap-around is handled.
+			toJ := minImage(pj.Position.Sub(pi.Position), s.cfg.BoxSize)
+			pi.Position = wrapPosition(pi.Position.Add(toJ.Scale(pj.Mass/totalMass)), s.cfg.BoxSize)
+
+			pi.Mass = totalMass
+			dead[j] = true
+			s.MergeCount++
+			break
+		}
+	}
+
 	live := s.Particles[:0]
 	for i, p := range s.Particles {
 		if !dead[i] {

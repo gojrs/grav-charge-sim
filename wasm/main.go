@@ -33,19 +33,19 @@ func step(_ js.Value, args []js.Value) any {
 	return nil
 }
 
-// getParticles() — returns a flat JS Float64Array: [x,y,gcharge, x,y,gcharge, ...]
-// Using 2D (X,Y) for now; Z is ignored by the canvas renderer.
-// gcharge is +1.0 (matter) or -1.0 (antimatter) — JS uses the sign to pick colour.
+// getParticles() — returns a flat JS Float64Array: [x, y, gcharge, mass, ...]
+// Stride 4. gcharge sign picks colour; mass drives rendered dot size.
 func getParticles(_ js.Value, _ []js.Value) any {
 	if sim == nil {
 		return js.Global().Get("Float64Array").New(0)
 	}
 	n := len(sim.Particles)
-	buf := js.Global().Get("Float64Array").New(n * 3)
+	buf := js.Global().Get("Float64Array").New(n * 4)
 	for i, p := range sim.Particles {
-		buf.SetIndex(i*3+0, p.Position.X)
-		buf.SetIndex(i*3+1, p.Position.Y)
-		buf.SetIndex(i*3+2, p.GCharge)
+		buf.SetIndex(i*4+0, p.Position.X)
+		buf.SetIndex(i*4+1, p.Position.Y)
+		buf.SetIndex(i*4+2, p.GCharge)
+		buf.SetIndex(i*4+3, p.Mass)
 	}
 	return buf
 }
@@ -72,6 +72,7 @@ func getStats(_ js.Value, _ []js.Value) any {
 		"matter":      matter,
 		"antimatter":  antimatter,
 		"annihilated": sim.AnnihilationCount,
+		"merged":      sim.MergeCount,
 		"steps":       sim.StepCount,
 	})
 }
