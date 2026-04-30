@@ -17,3 +17,8 @@ go.work.sum
 client/sim.wasm
 client/wasm_exec.js
 SIMULATION_CONTEXT.md
+
+# Notifier — config contains secrets, state is runtime-only
+notifier/config.json
+notifier/state.json
+grav-charge-notifier

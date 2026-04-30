@@ -1,4 +1,4 @@
-.PHONY: all build-wasm copy-wasm run build-linux deploy setup-server clean
+.PHONY: all build-wasm copy-wasm run build-linux deploy setup-server clean build-notifier setup-notifier deploy-notifier
 
 # ----- local dev -------------------------------------------------------
 
@@ -49,6 +49,36 @@ setup-server:
 		systemctl daemon-reload && \
 		systemctl enable grav-charge-sim"
 	@echo "Server ready. Run 'make deploy' to push the first binary."
+
+# ----- notifier --------------------------------------------------------
+
+NOTIFIER_HOST ?= gsim.vdisknow.com
+NOTIFIER_USER ?= root
+NOTIFIER_DIR  ?= /opt/grav-charge-notifier
+NOTIFIER_BIN  := grav-charge-notifier
+
+build-notifier:
+	GOOS=linux GOARCH=amd64 go build -o $(NOTIFIER_BIN) ./notifier/
+
+# One-time setup: install the config, copy the service unit, enable it.
+setup-notifier:
+	ssh $(NOTIFIER_USER)@$(NOTIFIER_HOST) "mkdir -p $(NOTIFIER_DIR)"
+	scp notifier/config.json $(NOTIFIER_USER)@$(NOTIFIER_HOST):$(NOTIFIER_DIR)/config.json
+	scp deploy/grav-charge-notifier.service \
+		$(NOTIFIER_USER)@$(NOTIFIER_HOST):/etc/systemd/system/grav-charge-notifier.service
+	ssh $(NOTIFIER_USER)@$(NOTIFIER_HOST) " \
+		systemctl daemon-reload && \
+		systemctl enable grav-charge-notifier"
+	@echo "Notifier service installed. Run 'make deploy-notifier' to push the first binary."
+
+deploy-notifier: build-notifier
+	scp $(NOTIFIER_BIN) $(NOTIFIER_USER)@$(NOTIFIER_HOST):$(NOTIFIER_DIR)/$(NOTIFIER_BIN).new
+	ssh $(NOTIFIER_USER)@$(NOTIFIER_HOST) " \
+		systemctl stop grav-charge-notifier 2>/dev/null || true && \
+		mv $(NOTIFIER_DIR)/$(NOTIFIER_BIN).new $(NOTIFIER_DIR)/$(NOTIFIER_BIN) && \
+		systemctl start grav-charge-notifier"
+	rm -f $(NOTIFIER_BIN)
+	@echo "Notifier deployed."
 
 # ----- clean -----------------------------------------------------------
 

@@ -1,0 +1,14 @@
+[Unit]
+Description=Grav-Charge Notifier
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/grav-charge-notifier
+ExecStart=/opt/grav-charge-notifier/grav-charge-notifier
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
