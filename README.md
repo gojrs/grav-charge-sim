@@ -2,7 +2,7 @@
 
 A real-time N-body simulation testing a conjecture about gravitational charge asymmetry — the hypothesis that matter and antimatter carry opposite gravitational charge, analogous to opposite electric charge in electromagnetism.
 
-**[Conjecture Paper](https://zenodo.org/records/19839829)** &nbsp;|&nbsp; **[Layman Version](https://zenodo.org/records/19839829)**
+**[▶ Live Demo](https://gsim.vdisknow.com)** &nbsp;|&nbsp; **[Conjecture Paper](https://zenodo.org/records/19839829)** &nbsp;|&nbsp; **[Layman Version](https://zenodo.org/records/19839829)**
 
 ---
 
