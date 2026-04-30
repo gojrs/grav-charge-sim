@@ -1,0 +1,41 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Build WASM
+        run: GOOS=js GOARCH=wasm go build -o client/sim.wasm ./wasm/
+
+      - name: Copy wasm_exec.js
+        run: cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" client/
+
+      - name: Build Linux binary (embed bakes in client files)
+        run: GOOS=linux GOARCH=amd64 go build -o grav-charge-sim .
+
+      - name: Deploy to droplet
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: |
+          echo "$DEPLOY_KEY" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          ssh-keyscan gsim.vdisknow.com >> ~/.ssh/known_hosts 2>/dev/null
+          scp -i /tmp/deploy_key root@gsim.vdisknow.com:/dev/null || true  # warm connection
+          scp -i /tmp/deploy_key grav-charge-sim root@gsim.vdisknow.com:/opt/grav-charge-sim/grav-charge-sim.new
+          ssh -i /tmp/deploy_key root@gsim.vdisknow.com \
+            "systemctl stop grav-charge-sim && \
+             mv /opt/grav-charge-sim/grav-charge-sim.new /opt/grav-charge-sim/grav-charge-sim && \
+             systemctl start grav-charge-sim"
+          rm -f /tmp/deploy_key
