@@ -27,12 +27,14 @@ build-linux: build-wasm copy-wasm
 	GOOS=linux GOARCH=amd64 go build -o $(BINARY) .
 
 # Build, push binary to server, restart service. Run for every update.
+# Uploads to a .new temp file first so scp never touches the running binary,
+# then stop/swap/start in one ssh call to minimise downtime.
 deploy: build-linux
 	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "mkdir -p $(DEPLOY_DIR)"
-	scp $(BINARY) $(DEPLOY_USER)@$(DEPLOY_HOST):$(DEPLOY_DIR)/$(BINARY)
-	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "systemctl restart grav-charge-sim"
+	scp $(BINARY) $(DEPLOY_USER)@$(DEPLOY_HOST):$(DEPLOY_DIR)/$(BINARY).new
+	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "systemctl stop grav-charge-sim && mv $(DEPLOY_DIR)/$(BINARY).new $(DEPLOY_DIR)/$(BINARY) && systemctl start grav-charge-sim"
 	rm -f $(BINARY)
-	@echo "Deployed to http://gsim.vdisknow.com"
+	@echo "Deployed to https://gsim.vdisknow.com"
 
 # One-time setup on a fresh Debian/Ubuntu droplet.
 # Creates the app directory, installs the systemd unit, and enables it.
