@@ -113,6 +113,44 @@ Requires Go 1.24+.
 
 ---
 
+## Local Server-Side Simulation (local only — not deployed)
+
+`cmd/localsim` is a headless binary that runs the same physics engine server-side using native Go goroutines. It is **not deployed to DigitalOcean** and has no browser dependency.
+
+The browser simulation is bounded by WASM memory and single-threaded JavaScript. `localsim` removes both constraints: force calculations are fanned out across goroutines using `Simulation.StepConcurrent`, so you can run much larger particle counts to observe long-term domain evolution.
+
+```bash
+# Run with defaults: 2000 particles, all CPU cores, until Ctrl-C
+make run-local
+
+# Pass flags via ARGS
+make run-local ARGS="-n 5000 -steps 2000"
+make run-local ARGS="-n 10000 -workers 8 -dt 0.008 -interval 50"
+
+# Or run directly
+go run ./cmd/localsim/ -n 5000 -steps 1000
+```
+
+**Flags:**
+
+| Flag | Default | Description |
+|---|---|---|
+| `-n` | 2000 | Particle count (split 50/50 matter/antimatter) |
+| `-steps` | 0 | Steps to run (0 = run until Ctrl-C) |
+| `-dt` | 0.016 | Time step per frame |
+| `-workers` | NumCPU | Goroutines for force calculation |
+| `-interval` | 100 | Print stats every N steps |
+| `-box` | 800 | Simulation box size |
+
+Output is one line per interval to stdout, suitable for piping or redirection:
+
+```
+step=100     particles=1974   matter=991   anti=983   ann=13   merged=0    412.3 steps/s
+step=200     particles=1951   matter=980   anti=971   ann=24   merged=4    408.7 steps/s
+```
+
+---
+
 ## Project Structure
 
 ```

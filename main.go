@@ -19,6 +19,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// /reason serves the essay page stored as better-reason.html in the client dir.
+	http.HandleFunc("/reason", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFileFS(w, r, sub, "better-reason.html")
+	})
 	http.Handle("/", http.FileServer(http.FS(sub)))
 
 	// Local dev: set PORT to run plain HTTP without touching certs.

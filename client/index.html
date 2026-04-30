@@ -131,6 +131,15 @@
     /* About button pushed to right end of top-bar */
     #btn-about-wrap { margin-left: auto; }
 
+    .essay-link {
+      color: #585878;
+      font-family: monospace;
+      font-size: 12px;
+      text-decoration: none;
+      padding: 4px 6px;
+    }
+    .essay-link:hover { color: #9090c0; }
+
     /* Modal overlay */
     #modal-overlay {
       display: none;
@@ -225,12 +234,19 @@
   </div>
 
   <div class="control-group">
+    <label for="force-toggle">Force lines</label>
+    <input type="checkbox" id="force-toggle">
+    <span id="force-warning" style="display:none; color:#ffaa44; font-size:11px;">&#9888; slow above 200 particles</span>
+  </div>
+
+  <div class="control-group">
     <label>Grid res</label>
     <input type="range" id="grid-res" min="5" max="40" step="5" value="20">
     <span class="val" id="grid-val">20</span>
   </div>
 
   <div class="control-group" id="btn-about-wrap">
+    <a href="/reason" class="essay-link">A Better Reason</a>
     <button id="btn-about">About</button>
   </div>
 </div>

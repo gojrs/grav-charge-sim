@@ -1,0 +1,469 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Better Reason — Jason Schweizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Source+Serif+4:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #0f0f1a;
+            --text: #e8e4d9;
+            --muted: #8a8578;
+            --accent: #4f8ef7;
+            --accent-warm: #c4a882;
+            --red: #c45c5c;
+            --border: rgba(232, 228, 217, 0.08);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Source Serif 4', Georgia, serif;
+            font-weight: 300;
+            line-height: 1.85;
+            font-size: 18px;
+            min-height: 100vh;
+        }
+
+        /* Stars background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                    radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.4) 0%, transparent 100%),
+                    radial-gradient(1px 1px at 80% 10%, rgba(255,255,255,0.3) 0%, transparent 100%),
+                    radial-gradient(1px 1px at 40% 80%, rgba(255,255,255,0.2) 0%, transparent 100%),
+                    radial-gradient(1px 1px at 90% 60%, rgba(255,255,255,0.35) 0%, transparent 100%),
+                    radial-gradient(1px 1px at 10% 90%, rgba(255,255,255,0.25) 0%, transparent 100%),
+                    radial-gradient(1px 1px at 60% 50%, rgba(255,255,255,0.15) 0%, transparent 100%),
+                    radial-gradient(1px 1px at 30% 60%, rgba(255,255,255,0.2) 0%, transparent 100%),
+                    radial-gradient(1px 1px at 70% 85%, rgba(255,255,255,0.3) 0%, transparent 100%),
+                    radial-gradient(1px 1px at 50% 15%, rgba(255,255,255,0.25) 0%, transparent 100%),
+                    radial-gradient(1px 1px at 15% 45%, rgba(255,255,255,0.2) 0%, transparent 100%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 20px 48px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(to bottom, rgba(10,10,15,0.95), transparent);
+            backdrop-filter: blur(8px);
+        }
+
+        .nav-brand {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 15px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--accent-warm);
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 13px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover { color: var(--text); }
+
+        /* Hero */
+        .hero {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 120px 48px 80px;
+        }
+
+        .hero-eyebrow {
+            font-size: 12px;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 32px;
+            opacity: 0;
+            animation: fadeUp 0.8s ease 0.3s forwards;
+        }
+
+        .hero-title {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: clamp(52px, 8vw, 96px);
+            font-weight: 400;
+            line-height: 1.05;
+            letter-spacing: -0.02em;
+            margin-bottom: 32px;
+            opacity: 0;
+            animation: fadeUp 0.8s ease 0.5s forwards;
+        }
+
+        .hero-title em {
+            font-style: italic;
+            color: var(--accent-warm);
+        }
+
+        .hero-subtitle {
+            font-size: 18px;
+            color: var(--muted);
+            max-width: 480px;
+            margin: 0 auto 48px;
+            opacity: 0;
+            animation: fadeUp 0.8s ease 0.7s forwards;
+        }
+
+        .hero-meta {
+            font-size: 13px;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+            opacity: 0;
+            animation: fadeUp 0.8s ease 0.9s forwards;
+        }
+
+        .scroll-indicator {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            opacity: 0;
+            animation: fadeUp 0.8s ease 1.2s forwards;
+        }
+
+        .scroll-indicator span {
+            font-size: 11px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .scroll-line {
+            width: 1px;
+            height: 48px;
+            background: linear-gradient(to bottom, var(--muted), transparent);
+            animation: scrollPulse 2s ease-in-out infinite;
+        }
+
+        /* Content */
+        .content {
+            position: relative;
+            z-index: 1;
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 80px 48px 120px;
+        }
+
+        /* Divider */
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            margin: 72px 0;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .divider-symbol {
+            color: var(--muted);
+            font-size: 14px;
+            letter-spacing: 0.3em;
+        }
+
+        /* Section headers */
+        .section-title {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 28px;
+            font-weight: 400;
+            color: var(--accent-warm);
+            margin-bottom: 32px;
+            line-height: 1.3;
+        }
+
+        /* Body text */
+        p {
+            margin-bottom: 28px;
+            color: var(--text);
+        }
+
+        /* Pull quote */
+        .pullquote {
+            margin: 56px -48px;
+            padding: 40px 48px;
+            border-left: 3px solid var(--accent);
+            background: rgba(79, 142, 247, 0.04);
+        }
+
+        .pullquote p {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 24px;
+            font-weight: 400;
+            font-style: italic;
+            line-height: 1.5;
+            color: var(--text);
+            margin: 0;
+        }
+
+        /* Key line */
+        .key-line {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 20px;
+            font-style: italic;
+            color: var(--accent-warm);
+            margin: 40px 0;
+            padding: 24px 0;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            text-align: center;
+        }
+
+        /* Footer links */
+        .footer-links {
+            margin-top: 80px;
+            padding-top: 48px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            text-align: center;
+        }
+
+        .footer-label {
+            font-size: 12px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .footer-link {
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 15px;
+            transition: color 0.2s;
+        }
+
+        .footer-link:hover { color: var(--text); }
+
+        .footer-author {
+            margin-top: 24px;
+            font-size: 13px;
+            color: var(--muted);
+            letter-spacing: 0.05em;
+        }
+
+        /* Animations */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes scrollPulse {
+            0%, 100% { opacity: 0.3; transform: scaleY(1); }
+            50% { opacity: 1; transform: scaleY(1.1); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            nav { padding: 16px 24px; }
+            .nav-links { display: none; }
+            .hero { padding: 100px 24px 60px; }
+            .content { padding: 60px 24px 80px; }
+            .pullquote { margin: 40px 0; padding: 28px 24px; }
+            .pullquote p { font-size: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <a href="/" class="nav-brand">Grav-Charge</a>
+    <ul class="nav-links">
+        <li><a href="/">Simulation</a></li>
+        <li><a href="/paper">Paper</a></li>
+        <li><a href="https://github.com/gojrs/grav-charge-sim" target="_blank">GitHub</a></li>
+    </ul>
+</nav>
+
+<section class="hero">
+    <p class="hero-eyebrow">An essay on gravity, antimatter, and a forty-year question</p>
+    <h1 class="hero-title">A <em>Better</em> Reason</h1>
+    <p class="hero-subtitle">Some questions about the universe, asked plainly by someone who fixes phone systems for a living.</p>
+    <p class="hero-meta">Jason Schweizer &nbsp;·&nbsp; April 2026</p>
+    <div class="scroll-indicator">
+        <span>Read</span>
+        <div class="scroll-line"></div>
+    </div>
+</section>
+
+<div class="content">
+
+    <p>I am not a scientist. I fix phone systems for a living. But I have spent a long time — most of my life, really — bothered by a few things about the way we explain the universe. This is my attempt to write those things down in plain language, share where the bothering led me, and see if any of it makes sense to anyone else.</p>
+
+    <p>I want to be honest about what this is and what it isn't. This isn't a proof of anything. It isn't a discovery. It's a conjecture — a careful guess, with reasons behind it and ways to check it. Smarter people than me will need to do the math. What I can offer is the question, and what happens when you follow it honestly.</p>
+
+    <div class="divider"><span class="divider-symbol">* * *</span></div>
+
+    <h2 class="section-title">The Thing That Bothered Me</h2>
+
+    <p>Here is how physics currently explains why the universe expanded so rapidly right after the Big Bang. There was, they say, a field. This field appeared, caused everything to expand at an almost unimaginable rate, and then stopped. We call it the inflaton field.</p>
+
+    <p>When you ask what the inflaton field is, where it came from, why it appeared, and why it stopped — the honest answer is: we don't know. We invented it because we needed something to make the math work. We gave it exactly the properties required to produce the expansion we observe, with no independent evidence that it exists at all, and then we moved on.</p>
+
+    <p>I understand why physicists do this. Sometimes you need a placeholder while you figure out the real answer. But the inflaton field has been a placeholder for decades now, and it bothers me the way a loose thread bothers you — not enough to ruin anything, but enough that you can't stop noticing it.</p>
+
+    <p>So I kept pulling the thread.</p>
+
+    <div class="divider"><span class="divider-symbol">* * *</span></div>
+
+    <h2 class="section-title">One Assumption</h2>
+
+    <p>Here is the idea I started with, stated as simply as I can manage:</p>
+
+    <div class="pullquote">
+        <p>What if matter and antimatter push each other away gravitationally, the same way opposite electric charges push each other apart?</p>
+    </div>
+
+    <p>That's it. One assumption. Everything else follows from it.</p>
+
+    <p>You probably know that opposite electric charges attract — positive pulls toward negative. But like charges repel — positive pushes away from positive. This is why magnets have a north and south, why static electricity makes your hair stand up, why the whole structure of chemistry works the way it does.</p>
+
+    <p>Gravity, as far as we know, only attracts. Every mass pulls toward every other mass. There's no gravitational equivalent of "like charges repel." But what if antimatter is gravity's minus sign? What if antimatter curves space in the opposite direction to matter — and just like electric charges, opposite gravitational charges repel each other?</p>
+
+    <p>That's the whole idea. Now let's see where it goes.</p>
+
+    <div class="divider"><span class="divider-symbol">* * *</span></div>
+
+    <h2 class="section-title">The Big Bang, Reconsidered</h2>
+
+    <p>In the first unimaginably brief moments after the Big Bang, the universe was a soup of matter and antimatter in nearly equal amounts. Normally, when matter meets antimatter, they annihilate — they destroy each other in a burst of energy. So we have a problem: if matter and antimatter were created in equal amounts, they should have destroyed each other completely, leaving nothing. But here we are.</p>
+
+    <p>Physics currently explains this by saying there was a slight excess of matter — about one extra matter particle for every billion matter-antimatter pairs. We call this CP violation. We've measured hints of it but nothing close to explaining a billion-to-one ratio. It remains one of the deepest unsolved problems in physics.</p>
+
+    <p>Here's what my assumption suggests instead. Gravity was the first force to separate from the unified energy of the Big Bang. In that first instant, before any other force had settled into its familiar form, gravity acted on matter and antimatter differently — it pushed them apart. Not slightly. Enormously. At the densities of the early universe, the repulsion would have been overwhelming.</p>
+
+    <p>The result: matter clumped together here, antimatter clumped there, and the boundary zones where they briefly overlapped produced the annihilation we'd expect. The one-in-a-billion excess isn't a fundamental property of matter. It's the rounding error at the boundary.</p>
+
+    <p>No inflaton field needed.</p>
+
+    <div class="divider"><span class="divider-symbol">* * *</span></div>
+
+    <h2 class="section-title">Where Did the Antimatter Go?</h2>
+
+    <p>If the universe contains roughly equal amounts of matter and antimatter, separated into vast domains — where is the antimatter now?</p>
+
+    <p>Look at a map of the large scale structure of the universe sometime. What you see is called the cosmic web — enormous filaments of galaxies surrounding vast empty regions called voids. The filaments are where galaxies cluster. The voids are, as far as we can tell, nearly empty.</p>
+
+    <p>My suggestion: the voids aren't empty. They're antimatter.</p>
+
+    <p>Matter curves space inward — light follows that curvature toward matter. Antimatter, under my assumption, curves space outward. Light near an antimatter region would be deflected away from it rather than toward it. Which means we can't see the antimatter in the voids. Not because it isn't there, but because the light that would tell us about it never reaches us.</p>
+
+    <p>We're looking at what we think is empty space. We might actually be looking at a vast region of antimatter that is, by its very nature, invisible to our matter-based instruments.</p>
+
+    <div class="divider"><span class="divider-symbol">* * *</span></div>
+
+    <h2 class="section-title">Dark Matter and Dark Energy, Explained</h2>
+
+    <p>Two of the biggest mysteries in modern cosmology are dark matter and dark energy. We can see their effects but not the things themselves.</p>
+
+    <p>We build our models of the universe from inside a matter-dominated region. Every measurement we've ever made has been made from here — inside the filaments, surrounded by matter. When those models are extended to the whole universe, they produce residuals. Things that don't add up. We label these dark matter and dark energy and treat them as things we need to discover.</p>
+
+    <p>But what if they're not missing things? What if they're the gravitational effects of the antimatter domains — the voids — acting on our matter-dominated filaments from the outside? We'd be measuring real effects with real instruments, getting real numbers, and then inventing dark matter and dark energy to explain them — when the actual explanation is sitting right there in the voids we've been overlooking.</p>
+
+    <div class="divider"><span class="divider-symbol">* * *</span></div>
+
+    <h2 class="section-title">The Universe as Chemistry</h2>
+
+    <p>Here's where the idea gets a little wilder. At the center of every atom is a nucleus — dense, massive, the thing that holds everything together. Around it orbit electrons — lighter, kept in place by the electromagnetic force.</p>
+
+    <p>Now look at a galaxy. At the center is a black hole — dense, massive, the thing that holds everything together. Around it orbit stars — lighter, kept in place by gravity.</p>
+
+    <p>What if this isn't a coincidence? What if the same logic operates at both scales, producing similar structure for the same underlying reason? Then the cosmic web isn't just a map of where matter clumped. It's a periodic table. Galaxy types are elements. Galaxy clusters are molecules. The interactions between matter-dominated filaments and antimatter-dominated voids are a form of chemistry happening at a scale we can barely perceive.</p>
+
+    <p>We're inside one of those atoms, looking out at the molecules around us, unable to see the full table.</p>
+
+    <div class="divider"><span class="divider-symbol">* * *</span></div>
+
+    <h2 class="section-title">What About Randomness?</h2>
+
+    <p>Quantum mechanics tells us that at the deepest level, the universe is random. Einstein hated this. He spent the rest of his life arguing that the randomness was an illusion — that there was something underneath we couldn't see yet.</p>
+
+    <p>Imagine beings who exist at the scale of the cosmic web. Their equivalent of particles would be galaxy clusters. When they run their equivalent of physics experiments, the outcomes would appear random to them. But from our perspective, those outcomes are the motion of hundreds of billions of galaxies following perfectly deterministic physical laws. Not random at all. Just too complex to resolve from above.</p>
+
+    <p>Now invert it. What we experience as quantum randomness might look the same from the level below. Deterministic processes at a scale we can't access, appearing random to us because we can't resolve them. Einstein's intuition — that God does not play dice — might have been pointing at exactly this.</p>
+
+    <div class="divider"><span class="divider-symbol">* * *</span></div>
+
+    <h2 class="section-title">What I'm Actually Claiming</h2>
+
+    <p>I am not claiming to have solved cosmology. I am saying there might be a better reason for several things we currently explain with placeholder physics, and here is what that reason looks like, and here is how you could check it.</p>
+
+    <p>The testable predictions include negative gravitational lensing at the edges of cosmic voids, a pattern of cold spots in the cosmic microwave background that correlates with void locations, a maximum size limit for voids, quantization-like patterns in how stars orbit galactic black holes, and anomalous high-energy events that cluster near the boundaries of the cosmic web.</p>
+
+    <p>Some of these could be checked right now against data that already exists. Nobody has looked for these specific signatures because nobody has had a reason to expect them. That's what this conjecture provides — a reason to look.</p>
+
+    <div class="divider"><span class="divider-symbol">* * *</span></div>
+
+    <h2 class="section-title">Nature Do What Nature Do</h2>
+
+    <p>I grew up watching Discovery Channel with my dad. We'd talk about what we'd seen — black holes, the Big Bang, the scale of the universe — and I'd go to bed with the questions still running in the background. I don't think those questions ever really stopped running.</p>
+
+    <p>What I've come to believe, after a lifetime of carrying these questions while fixing other people's phone systems, is that the universe is under no obligation to be simple, or beautiful, or comprehensible to us. It doesn't owe us an explanation. It doesn't care if our models are tidy. It just does what it does, at every scale, according to rules that were set before anyone was around to notice them.</p>
+
+    <p>We owe it everything — every atom in our bodies was forged in a star. The carbon, the oxygen, the iron in our blood, all of it cooked in stellar furnaces billions of years before the sun existed, scattered across space, eventually assembled into something that can look back at the whole thing and ask why.</p>
+
+    <p>The universe didn't intend that. But it permitted it.</p>
+
+    <div class="key-line">And maybe that's enough.</div>
+
+    <div class="footer-links">
+        <p class="footer-label">The formal conjecture paper, with full citations and testable predictions</p>
+        <a href="https://zenodo.org/records/19839829" target="_blank" class="footer-link">zenodo.org/records/19839829</a>
+        <p class="footer-label" style="margin-top: 16px">Interactive simulation</p>
+        <a href="/" class="footer-link">gsim.vdisknow.com</a>
+        <p class="footer-label" style="margin-top: 16px">Source code</p>
+        <a href="https://github.com/gojrs/grav-charge-sim" target="_blank" class="footer-link">github.com/gojrs/grav-charge-sim</a>
+        <p class="footer-author">Jason Schweizer &nbsp;·&nbsp; Independent Researcher &nbsp;·&nbsp; Petal, Mississippi &nbsp;·&nbsp; April 2026</p>
+    </div>
+
+</div>
+
+</body>
+</html>

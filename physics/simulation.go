@@ -3,6 +3,7 @@ package physics
 import (
 	"math"
 	"math/rand"
+	"sync"
 )
 
 const (
@@ -83,6 +84,63 @@ func (s *Simulation) Step(dt float64) {
 	}
 
 	// Integrate, then wrap positions back into [-BoxSize/2, BoxSize/2).
+	for i := range s.Particles {
+		s.Particles[i].ApplyForce(forces[i], dt)
+		s.Particles[i].Integrate(dt)
+		s.Particles[i].Position = wrapPosition(s.Particles[i].Position, s.cfg.BoxSize)
+	}
+
+	s.annihilate()
+	s.merge()
+	s.StepCount++
+}
+
+// ComputeForces returns the net gravitational force on each particle without
+// advancing the simulation. Used by the WASM layer for force-line visualization.
+func (s *Simulation) ComputeForces() []Vector3 {
+	n := len(s.Particles)
+	forces := make([]Vector3, n)
+	if n > 0 {
+		root := buildTree(s.Particles, s.cfg.BoxSize)
+		for i := range s.Particles {
+			forces[i] = root.force(&s.Particles[i], s.cfg.BoxSize)
+		}
+	}
+	return forces
+}
+
+// StepConcurrent advances the simulation by dt, distributing force calculations
+// across workers goroutines. The Barnes-Hut tree is built once; each goroutine
+// handles a contiguous slice of particles. Safe to call from a single goroutine.
+func (s *Simulation) StepConcurrent(dt float64, workers int) {
+	n := len(s.Particles)
+	forces := make([]Vector3, n)
+
+	if n > 0 {
+		root := buildTree(s.Particles, s.cfg.BoxSize)
+
+		var wg sync.WaitGroup
+		chunk := (n + workers - 1) / workers
+		for w := 0; w < workers; w++ {
+			lo := w * chunk
+			hi := lo + chunk
+			if hi > n {
+				hi = n
+			}
+			if lo >= n {
+				break
+			}
+			wg.Add(1)
+			go func(lo, hi int) {
+				defer wg.Done()
+				for i := lo; i < hi; i++ {
+					forces[i] = root.force(&s.Particles[i], s.cfg.BoxSize)
+				}
+			}(lo, hi)
+		}
+		wg.Wait()
+	}
+
 	for i := range s.Particles {
 		s.Particles[i].ApplyForce(forces[i], dt)
 		s.Particles[i].Integrate(dt)

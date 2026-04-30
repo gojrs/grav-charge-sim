@@ -50,6 +50,22 @@ func getParticles(_ js.Value, _ []js.Value) any {
 	return buf
 }
 
+// getForces() — returns a flat JS Float64Array: [fx, fy, fx, fy, ...]
+// Stride 2. Indices align with getParticles() particle order.
+// Forces are computed from current particle positions without advancing the sim.
+func getForces(_ js.Value, _ []js.Value) any {
+	if sim == nil {
+		return js.Global().Get("Float64Array").New(0)
+	}
+	forces := sim.ComputeForces()
+	buf := js.Global().Get("Float64Array").New(len(forces) * 2)
+	for i, f := range forces {
+		buf.SetIndex(i*2+0, f.X)
+		buf.SetIndex(i*2+1, f.Y)
+	}
+	return buf
+}
+
 // getStats() — returns a plain JS object with running counters.
 func getStats(_ js.Value, _ []js.Value) any {
 	if sim == nil {
@@ -82,6 +98,7 @@ func main() {
 		"init":         js.FuncOf(initSim),
 		"step":         js.FuncOf(step),
 		"getParticles": js.FuncOf(getParticles),
+		"getForces":    js.FuncOf(getForces),
 		"getStats":     js.FuncOf(getStats),
 	}))
 

@@ -42,6 +42,7 @@ let dotRadius       = 2;    // controlled by dot-size slider
 let particleCount   = 1000;
 let showDensityGrid = true;
 let gridCells       = 20;   // N×N grid resolution
+let showForceLines  = false;
 
 // ---------------------------------------------------------------------------
 // Controls
@@ -67,13 +68,20 @@ speedSlider.addEventListener("input", () => {
   speedVal.textContent = stepsPerFrame + "×";
 });
 
-const countSlider = document.getElementById("count");
-const countVal    = document.getElementById("count-val");
+const countSlider    = document.getElementById("count");
+const countVal       = document.getElementById("count-val");
+const forceWarning   = document.getElementById("force-warning");
+
+function updateForceWarning() {
+  forceWarning.style.display = (showForceLines && particleCount > 200) ? "inline" : "none";
+}
+
 countSlider.addEventListener("input", () => {
   particleCount = parseInt(countSlider.value);
   countVal.textContent = particleCount;
   gravSim.init(particleCount);
   updateStats();
+  updateForceWarning();
 });
 
 const dotSlider = document.getElementById("dot-size");
@@ -85,6 +93,11 @@ dotSlider.addEventListener("input", () => {
 
 document.getElementById("density-toggle").addEventListener("change", e => {
   showDensityGrid = e.target.checked;
+});
+
+document.getElementById("force-toggle").addEventListener("change", e => {
+  showForceLines = e.target.checked;
+  updateForceWarning();
 });
 
 const gridResSlider = document.getElementById("grid-res");
@@ -154,7 +167,63 @@ function drawDensityGrid(particles) {
   }
 }
 
-function draw(particles) {
+// Force vectors are in simulation units; convert to canvas pixels by scaling
+// the magnitude before capping. Logarithmic compression keeps faint forces
+// visible while preventing nearby-particle spikes from dominating the display.
+const FORCE_LOG_SCALE = 600; // multiplier before log: tunes sensitivity
+const FORCE_MAX_PX    = 45;  // hard cap on arrow length in canvas pixels
+
+function drawArrowhead(x, y, angle, size) {
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x - size * Math.cos(angle - Math.PI / 6), y - size * Math.sin(angle - Math.PI / 6));
+  ctx.lineTo(x - size * Math.cos(angle + Math.PI / 6), y - size * Math.sin(angle + Math.PI / 6));
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawForceLines(particles, forces) {
+  const stride = 4;
+  const n      = particles.length / stride;
+
+  ctx.save();
+  ctx.lineWidth = 1;
+
+  for (let i = 0; i < n; i++) {
+    const fx = forces[i * 2];
+    const fy = forces[i * 2 + 1];
+    const fmag = Math.sqrt(fx * fx + fy * fy);
+    if (fmag < 1e-10) continue;
+
+    // Logarithmic magnitude → canvas pixels so wide dynamic range stays legible.
+    const displayLen = Math.min(Math.log1p(fmag * FORCE_LOG_SCALE) * 10, FORCE_MAX_PX);
+    if (displayLen < 1.5) continue;
+
+    const nx = fx / fmag;
+    const ny = fy / fmag;
+
+    const [cx, cy] = simToCanvas(particles[i * stride], particles[i * stride + 1]);
+    const ex = cx + nx * displayLen;
+    const ey = cy + ny * displayLen;
+    const gc = particles[i * stride + 2];
+
+    const color = gc > 0 ? "rgba(68,136,255,0.75)" : "rgba(255,68,68,0.75)";
+    ctx.strokeStyle = color;
+    ctx.fillStyle   = color;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+
+    const headLen = Math.min(5, displayLen * 0.35);
+    drawArrowhead(ex, ey, Math.atan2(ny, nx), headLen);
+  }
+
+  ctx.restore();
+}
+
+function draw(particles, forces) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   if (showDensityGrid) {
@@ -201,6 +270,10 @@ function draw(particles) {
     }
   }
   ctx.fill();
+
+  if (forces) {
+    drawForceLines(particles, forces);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -236,7 +309,8 @@ function loop() {
   }
 
   const particles = gravSim.getParticles();
-  draw(particles);
+  const forces    = showForceLines ? gravSim.getForces() : null;
+  draw(particles, forces);
 
   // Update stats every 10 frames to avoid DOM churn.
   if (frameCount++ % 10 === 0) {

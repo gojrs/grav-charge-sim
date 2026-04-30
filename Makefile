@@ -1,4 +1,4 @@
-.PHONY: all build-wasm copy-wasm run build-linux deploy setup-server clean build-notifier setup-notifier deploy-notifier
+.PHONY: all build-wasm copy-wasm run run-local build-linux deploy setup-server clean build-notifier setup-notifier deploy-notifier
 
 # ----- local dev -------------------------------------------------------
 
@@ -13,6 +13,12 @@ copy-wasm:
 # embed requires sim.wasm + wasm_exec.js to be present at build time
 run: build-wasm copy-wasm
 	PORT=8088 go run main.go
+
+# Server-side simulation with Go concurrency — local development only, not deployed.
+# Flags: -n (particles), -steps (0=infinite), -dt, -workers, -interval, -box
+# Example: make run-local ARGS="-n 5000 -steps 1000 -workers 8"
+run-local:
+	go run ./cmd/localsim/ $(ARGS)
 
 # ----- deploy ----------------------------------------------------------
 
