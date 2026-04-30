@@ -1,10 +1,11 @@
 name: Deploy
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -15,23 +16,46 @@ jobs:
         with:
           go-version: '1.25'
 
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test ./...
+
       - name: Build WASM
         run: GOOS=js GOARCH=wasm go build -o client/sim.wasm ./wasm/
 
       - name: Copy wasm_exec.js
         run: cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" client/
 
-      - name: Build Linux binary (embed bakes in client files)
+      - name: Build Linux binary
         run: GOOS=linux GOARCH=amd64 go build -o grav-charge-sim .
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: grav-charge-sim
+          path: grav-charge-sim
+          retention-days: 1
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download binary
+        uses: actions/download-artifact@v4
+        with:
+          name: grav-charge-sim
 
       - name: Deploy to droplet
         env:
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
         run: |
+          chmod +x grav-charge-sim
           echo "$DEPLOY_KEY" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
           ssh-keyscan gsim.vdisknow.com >> ~/.ssh/known_hosts 2>/dev/null
-          scp -i /tmp/deploy_key root@gsim.vdisknow.com:/dev/null || true  # warm connection
           scp -i /tmp/deploy_key grav-charge-sim root@gsim.vdisknow.com:/opt/grav-charge-sim/grav-charge-sim.new
           ssh -i /tmp/deploy_key root@gsim.vdisknow.com \
             "systemctl stop grav-charge-sim && \
