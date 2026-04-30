@@ -43,6 +43,7 @@ setup-server:
 		$(DEPLOY_USER)@$(DEPLOY_HOST):/etc/systemd/system/grav-charge-sim.service
 	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) " \
 		mkdir -p $(DEPLOY_DIR) && \
+		mkdir -p $(DEPLOY_DIR)/certs && \
 		systemctl daemon-reload && \
 		systemctl enable grav-charge-sim"
 	@echo "Server ready. Run 'make deploy' to push the first binary."

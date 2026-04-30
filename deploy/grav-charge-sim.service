@@ -4,7 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-Environment=PORT=80
+Environment=DOMAIN=gsim.vdisknow.com
+Environment=CERT_DIR=/opt/grav-charge-sim/certs
 ExecStart=/opt/grav-charge-sim/grav-charge-sim
 Restart=on-failure
 RestartSec=5
