@@ -240,6 +240,18 @@
   </div>
 
   <div class="control-group">
+    <label for="split-force-toggle">Split forces</label>
+    <input type="checkbox" id="split-force-toggle">
+    <span id="split-force-warning" style="display:none; color:#ffaa44; font-size:11px;">&#9888; slow above 200 particles</span>
+  </div>
+
+  <div class="control-group">
+    <label for="fabric-toggle">Fabric</label>
+    <input type="checkbox" id="fabric-toggle">
+    <span id="fabric-warning" style="display:none; color:#ffaa44; font-size:11px;">&#9888; slow above 200 particles</span>
+  </div>
+
+  <div class="control-group">
     <label>Grid res</label>
     <input type="range" id="grid-res" min="5" max="40" step="5" value="20">
     <span class="val" id="grid-val">20</span>

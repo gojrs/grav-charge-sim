@@ -42,7 +42,12 @@ let dotRadius       = 2;    // controlled by dot-size slider
 let particleCount   = 1000;
 let showDensityGrid = true;
 let gridCells       = 20;   // N×N grid resolution
-let showForceLines  = false;
+let showForceLines   = false;
+let showSplitForces  = false;
+let showFabric       = false;
+
+// Force magnitude threshold for fabric lines. Increase to show fewer, stronger connections.
+const FABRIC_THRESHOLD = 0.003;
 
 // ---------------------------------------------------------------------------
 // Controls
@@ -68,12 +73,16 @@ speedSlider.addEventListener("input", () => {
   speedVal.textContent = stepsPerFrame + "×";
 });
 
-const countSlider    = document.getElementById("count");
-const countVal       = document.getElementById("count-val");
-const forceWarning   = document.getElementById("force-warning");
+const countSlider        = document.getElementById("count");
+const countVal           = document.getElementById("count-val");
+const forceWarning       = document.getElementById("force-warning");
+const splitForceWarning  = document.getElementById("split-force-warning");
+const fabricWarning      = document.getElementById("fabric-warning");
 
-function updateForceWarning() {
-  forceWarning.style.display = (showForceLines && particleCount > 200) ? "inline" : "none";
+function updateVizWarnings() {
+  forceWarning.style.display      = (showForceLines  && particleCount > 200) ? "inline" : "none";
+  splitForceWarning.style.display = (showSplitForces && particleCount > 200) ? "inline" : "none";
+  fabricWarning.style.display     = (showFabric      && particleCount > 200) ? "inline" : "none";
 }
 
 countSlider.addEventListener("input", () => {
@@ -81,7 +90,7 @@ countSlider.addEventListener("input", () => {
   countVal.textContent = particleCount;
   gravSim.init(particleCount);
   updateStats();
-  updateForceWarning();
+  updateVizWarnings();
 });
 
 const dotSlider = document.getElementById("dot-size");
@@ -97,7 +106,17 @@ document.getElementById("density-toggle").addEventListener("change", e => {
 
 document.getElementById("force-toggle").addEventListener("change", e => {
   showForceLines = e.target.checked;
-  updateForceWarning();
+  updateVizWarnings();
+});
+
+document.getElementById("split-force-toggle").addEventListener("change", e => {
+  showSplitForces = e.target.checked;
+  updateVizWarnings();
+});
+
+document.getElementById("fabric-toggle").addEventListener("change", e => {
+  showFabric = e.target.checked;
+  updateVizWarnings();
 });
 
 const gridResSlider = document.getElementById("grid-res");
@@ -223,7 +242,156 @@ function drawForceLines(particles, forces) {
   ctx.restore();
 }
 
-function draw(particles, forces) {
+// drawSplitForces renders two arrows per particle: attractive (particle's own color)
+// and repulsive (amber), using the same log-scale and arrowhead as drawForceLines.
+function drawSplitForces(particles, splitData) {
+  const stride = 4;
+  const n = particles.length / stride;
+
+  ctx.save();
+  ctx.lineWidth = 1;
+
+  for (let i = 0; i < n; i++) {
+    const [cx, cy] = simToCanvas(particles[i * stride], particles[i * stride + 1]);
+    const gc = particles[i * stride + 2];
+
+    // Attractive component — particle's own color.
+    const ax = splitData[i * 4], ay = splitData[i * 4 + 1];
+    const amag = Math.hypot(ax, ay);
+    if (amag > 1e-10) {
+      const len = Math.min(Math.log1p(amag * FORCE_LOG_SCALE) * 10, FORCE_MAX_PX);
+      if (len >= 1.5) {
+        const nx = ax / amag, ny = ay / amag;
+        const color = gc > 0 ? "rgba(68,136,255,0.8)" : "rgba(255,68,68,0.8)";
+        ctx.strokeStyle = color;
+        ctx.fillStyle   = color;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + nx * len, cy + ny * len);
+        ctx.stroke();
+        drawArrowhead(cx + nx * len, cy + ny * len, Math.atan2(ny, nx), Math.min(5, len * 0.35));
+      }
+    }
+
+    // Repulsive component — amber.
+    const rx = splitData[i * 4 + 2], ry = splitData[i * 4 + 3];
+    const rmag = Math.hypot(rx, ry);
+    if (rmag > 1e-10) {
+      const len = Math.min(Math.log1p(rmag * FORCE_LOG_SCALE) * 10, FORCE_MAX_PX);
+      if (len >= 1.5) {
+        const nx = rx / rmag, ny = ry / rmag;
+        ctx.strokeStyle = "rgba(255,190,60,0.8)";
+        ctx.fillStyle   = "rgba(255,190,60,0.8)";
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + nx * len, cy + ny * len);
+        ctx.stroke();
+        drawArrowhead(cx + nx * len, cy + ny * len, Math.atan2(ny, nx), Math.min(5, len * 0.35));
+      }
+    }
+  }
+
+  ctx.restore();
+}
+
+// segmentIntersect returns parameter t along (ax,ay)→(bx,by) where it crosses
+// (cx,cy)→(dx,dy), or null if the segments don't intersect within (0,1).
+function segmentIntersect(ax, ay, bx, by, cx, cy, dx, dy) {
+  const dxAB = bx - ax, dyAB = by - ay;
+  const dxCD = dx - cx, dyCD = dy - cy;
+  const denom = dxAB * dyCD - dyAB * dxCD;
+  if (Math.abs(denom) < 1e-10) return null;
+  const t = ((cx - ax) * dyCD - (cy - ay) * dxCD) / denom;
+  const u = ((cx - ax) * dyAB - (cy - ay) * dxAB) / denom;
+  return (t > 0 && t < 1 && u > 0 && u < 1) ? t : null;
+}
+
+function drawLineSegT(x1, y1, x2, y2, t0, t1) {
+  if (t1 <= t0 + 1e-6) return;
+  ctx.beginPath();
+  ctx.moveTo(x1 + (x2 - x1) * t0, y1 + (y2 - y1) * t0);
+  ctx.lineTo(x1 + (x2 - x1) * t1, y1 + (y2 - y1) * t1);
+  ctx.stroke();
+}
+
+// drawFabric renders force-pair connections as a woven mesh.
+// Lines with higher index draw "over"; lower index stop just before each
+// crossing, leaving a small gap — producing depth without z-buffering.
+// Above WEAVE_CAP segments the weave is skipped to keep the frame rate acceptable.
+function drawFabric(data) {
+  const stride = 5;
+  const count  = data.length / stride;
+  if (count === 0) return;
+
+  // Convert all pairs to canvas coords up front.
+  const segs = new Array(count);
+  for (let i = 0; i < count; i++) {
+    const [x1, y1] = simToCanvas(data[i * stride],     data[i * stride + 1]);
+    const [x2, y2] = simToCanvas(data[i * stride + 2], data[i * stride + 3]);
+    segs[i] = { x1, y1, x2, y2, kind: data[i * stride + 4] };
+  }
+
+  // Compute pairwise intersections when the segment count is manageable.
+  const WEAVE_CAP = 600;
+  const weave = count <= WEAVE_CAP;
+  const isects = weave ? segs.map(() => []) : null;
+
+  if (weave) {
+    for (let i = 0; i < count; i++) {
+      const { x1: ax, y1: ay, x2: bx, y2: by } = segs[i];
+      for (let j = i + 1; j < count; j++) {
+        const { x1: cx, y1: cy, x2: dx, y2: dy } = segs[j];
+        const ti = segmentIntersect(ax, ay, bx, by, cx, cy, dx, dy);
+        if (ti !== null) {
+          const tj = segmentIntersect(cx, cy, dx, dy, ax, ay, bx, by);
+          isects[i].push({ t: ti, over: false }); // i < j → i goes under
+          isects[j].push({ t: tj, over: true  }); // j > i → j goes over
+        }
+      }
+    }
+    for (let i = 0; i < count; i++) isects[i].sort((a, b) => a.t - b.t);
+  }
+
+  ctx.save();
+  ctx.lineWidth = 1;
+
+  for (let i = 0; i < count; i++) {
+    const { x1, y1, x2, y2, kind } = segs[i];
+    ctx.strokeStyle =
+      kind === 1 ? "rgba(68,136,255,0.65)"  // matter-matter: blue
+    : kind === 2 ? "rgba(255,68,68,0.65)"   // anti-anti:     red
+    :              "rgba(255,190,60,0.65)";  // matter-anti:   amber
+
+    if (!weave || isects[i].length === 0) {
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      continue;
+    }
+
+    // Draw with weave: "under" segments clip at crossing; "over" draw through.
+    const totalLen = Math.hypot(x2 - x1, y2 - y1);
+    const gapHalf  = totalLen > 0 ? 3 / totalLen : 0; // 3 px half-gap
+
+    let prevT = 0;
+    for (const { t, over } of isects[i]) {
+      if (!over) {
+        drawLineSegT(x1, y1, x2, y2, prevT, Math.max(prevT, t - gapHalf));
+        prevT = t + gapHalf;
+      }
+      // "over" — just continue past the crossing, no gap needed.
+    }
+    if (prevT < 1) drawLineSegT(x1, y1, x2, y2, prevT, 1);
+  }
+
+  ctx.restore();
+}
+
+// draw renders the background layers and particles.
+// Fabric (if provided) is drawn under particles; arrow overlays are applied
+// by the loop after draw() returns so they sit on top.
+function draw(particles, fabricPairs) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   if (showDensityGrid) {
@@ -239,6 +407,9 @@ function draw(particles, forces) {
   ctx.moveTo(0, canvas.height / 2);
   ctx.lineTo(canvas.width, canvas.height / 2);
   ctx.stroke();
+
+  // Fabric lines drawn before particles so dots sit on top.
+  if (fabricPairs) drawFabric(fabricPairs);
 
   // Flat array layout: [x, y, gcharge, mass,  x, y, gcharge, mass, ...]
   const stride  = 4;
@@ -270,10 +441,6 @@ function draw(particles, forces) {
     }
   }
   ctx.fill();
-
-  if (forces) {
-    drawForceLines(particles, forces);
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -308,9 +475,12 @@ function loop() {
     }
   }
 
-  const particles = gravSim.getParticles();
-  const forces    = showForceLines ? gravSim.getForces() : null;
-  draw(particles, forces);
+  const particles   = gravSim.getParticles();
+  const fabricPairs = showFabric      ? gravSim.getFabricPairs(FABRIC_THRESHOLD) : null;
+  draw(particles, fabricPairs);
+  // Arrow overlays drawn after particles so they sit on top.
+  if (showForceLines)  drawForceLines(particles, gravSim.getForces());
+  if (showSplitForces) drawSplitForces(particles, gravSim.getSplitForces());
 
   // Update stats every 10 frames to avoid DOM churn.
   if (frameCount++ % 10 === 0) {

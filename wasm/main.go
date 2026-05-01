@@ -52,6 +52,46 @@ func getParticles(_ js.Value, _ []js.Value) any {
 	return buf
 }
 
+// getSplitForces() — Float64Array stride 4: [ax,ay,rx,ry per particle]
+// Attractive (same-charge) and repulsive (opposite-charge) components, computed pairwise.
+func getSplitForces(_ js.Value, _ []js.Value) any {
+	if sim == nil {
+		return js.Global().Get("Float64Array").New(0)
+	}
+	attr, rep := sim.ComputeSplitForces()
+	n := len(attr)
+	buf := js.Global().Get("Float64Array").New(n * 4)
+	for i := range attr {
+		buf.SetIndex(i*4+0, attr[i].X)
+		buf.SetIndex(i*4+1, attr[i].Y)
+		buf.SetIndex(i*4+2, rep[i].X)
+		buf.SetIndex(i*4+3, rep[i].Y)
+	}
+	return buf
+}
+
+// getFabricPairs(threshold?) — Float64Array stride 5: [x1,y1,x2,y2,kind, ...]
+// kind: 1=matter-matter, 2=anti-anti, 3=matter-anti. Default threshold 0.003.
+func getFabricPairs(_ js.Value, args []js.Value) any {
+	if sim == nil {
+		return js.Global().Get("Float64Array").New(0)
+	}
+	threshold := 0.003
+	if len(args) > 0 {
+		threshold = args[0].Float()
+	}
+	pairs := sim.ComputeFabricPairs(threshold)
+	buf := js.Global().Get("Float64Array").New(len(pairs) * 5)
+	for i, p := range pairs {
+		buf.SetIndex(i*5+0, p.AX)
+		buf.SetIndex(i*5+1, p.AY)
+		buf.SetIndex(i*5+2, p.BX)
+		buf.SetIndex(i*5+3, p.BY)
+		buf.SetIndex(i*5+4, p.Kind)
+	}
+	return buf
+}
+
 // getForces() — returns a flat JS Float64Array: [fx, fy, fx, fy, ...]
 // Stride 2. Indices align with getParticles() particle order.
 // Forces are computed from current particle positions without advancing the sim.
@@ -97,11 +137,13 @@ func getStats(_ js.Value, _ []js.Value) any {
 
 func main() {
 	js.Global().Set("gravSim", js.ValueOf(map[string]any{
-		"init":         js.FuncOf(initSim),
-		"step":         js.FuncOf(step),
-		"getParticles": js.FuncOf(getParticles),
-		"getForces":    js.FuncOf(getForces),
-		"getStats":     js.FuncOf(getStats),
+		"init":           js.FuncOf(initSim),
+		"step":           js.FuncOf(step),
+		"getParticles":   js.FuncOf(getParticles),
+		"getForces":      js.FuncOf(getForces),
+		"getSplitForces": js.FuncOf(getSplitForces),
+		"getFabricPairs": js.FuncOf(getFabricPairs),
+		"getStats":       js.FuncOf(getStats),
 	}))
 
 	// Keep the WASM module alive — the runtime requires main() to block.

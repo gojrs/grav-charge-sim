@@ -95,6 +95,67 @@ func (s *Simulation) Step(dt float64) {
 	s.StepCount++
 }
 
+// ForcePair is a pairwise interaction above a force threshold, in simulation coords.
+// Kind: 1 = matter-matter, 2 = anti-anti, 3 = matter-anti.
+type ForcePair struct {
+	AX, AY float64
+	BX, BY float64
+	Kind   float64
+}
+
+// ComputeSplitForces separates per-particle forces into attractive (same-charge)
+// and repulsive (opposite-charge) components via O(N²) pairwise evaluation.
+// Intended for small-N force-line visualization — not used in the simulation step.
+func (s *Simulation) ComputeSplitForces() (attractive, repulsive []Vector3) {
+	n := len(s.Particles)
+	attractive = make([]Vector3, n)
+	repulsive = make([]Vector3, n)
+	for i := range s.Particles {
+		for j := range s.Particles {
+			if i == j {
+				continue
+			}
+			f := gravitationalForce(s.Particles[i], s.Particles[j], s.cfg.BoxSize)
+			if s.Particles[i].GCharge == s.Particles[j].GCharge {
+				attractive[i] = attractive[i].Add(f)
+			} else {
+				repulsive[i] = repulsive[i].Add(f)
+			}
+		}
+	}
+	return
+}
+
+// ComputeFabricPairs returns all same-step pairwise interactions whose force
+// magnitude exceeds threshold. O(N²) — intended for small-N fabric visualization.
+func (s *Simulation) ComputeFabricPairs(threshold float64) []ForcePair {
+	n := len(s.Particles)
+	var pairs []ForcePair
+	for i := 0; i < n-1; i++ {
+		for j := i + 1; j < n; j++ {
+			f := gravitationalForce(s.Particles[i], s.Particles[j], s.cfg.BoxSize)
+			if f.Length() < threshold {
+				continue
+			}
+			var kind float64
+			switch {
+			case s.Particles[i].GCharge > 0 && s.Particles[j].GCharge > 0:
+				kind = 1
+			case s.Particles[i].GCharge < 0 && s.Particles[j].GCharge < 0:
+				kind = 2
+			default:
+				kind = 3
+			}
+			pairs = append(pairs, ForcePair{
+				AX: s.Particles[i].Position.X, AY: s.Particles[i].Position.Y,
+				BX: s.Particles[j].Position.X, BY: s.Particles[j].Position.Y,
+				Kind: kind,
+			})
+		}
+	}
+	return pairs
+}
+
 // ComputeForces returns the net gravitational force on each particle without
 // advancing the simulation. Used by the WASM layer for force-line visualization.
 func (s *Simulation) ComputeForces() []Vector3 {
