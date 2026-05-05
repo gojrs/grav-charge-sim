@@ -45,9 +45,29 @@ let gridCells       = 20;   // N×N grid resolution
 let showForceLines   = false;
 let showSplitForces  = false;
 let showFabric       = false;
+let showPocketBadges = false;
+let showMassLabels   = false;
 
 // Force magnitude threshold for fabric lines. Increase to show fewer, stronger connections.
 const FABRIC_THRESHOLD = 0.003;
+
+// Pocket badge ring buffer — each entry: { x, y, ratio, age }
+let pocketBadges = [];
+const POCKET_MAX_AGE = 240; // frames (~4 s at 60 fps)
+
+// Mouse position in canvas pixels for hover tooltip; negative means off-canvas.
+let mouseCanvasX = -1;
+let mouseCanvasY = -1;
+
+canvas.addEventListener("mousemove", e => {
+  const rect = canvas.getBoundingClientRect();
+  mouseCanvasX = e.clientX - rect.left;
+  mouseCanvasY = e.clientY - rect.top;
+});
+canvas.addEventListener("mouseleave", () => {
+  mouseCanvasX = -1;
+  mouseCanvasY = -1;
+});
 
 // ---------------------------------------------------------------------------
 // Controls
@@ -63,6 +83,7 @@ btnPlay.addEventListener("click", () => {
 
 btnReset.addEventListener("click", () => {
   gravSim.init(particleCount);
+  pocketBadges = [];
   updateStats();
 });
 
@@ -80,15 +101,21 @@ const splitForceWarning  = document.getElementById("split-force-warning");
 const fabricWarning      = document.getElementById("fabric-warning");
 
 function updateVizWarnings() {
-  forceWarning.style.display      = (showForceLines  && particleCount > 200) ? "inline" : "none";
-  splitForceWarning.style.display = (showSplitForces && particleCount > 200) ? "inline" : "none";
-  fabricWarning.style.display     = (showFabric      && particleCount > 200) ? "inline" : "none";
+  const warn = window.GRAV_ENV?.warn ?? { forceLines: 200, splitForces: 200, fabric: 200 };
+  const setWarn = (el, active, threshold) => {
+    el.style.display = active ? "block" : "none";
+    el.textContent   = `⚠ slow above ${threshold} particles`;
+  };
+  setWarn(forceWarning,      showForceLines  && particleCount > warn.forceLines,  warn.forceLines);
+  setWarn(splitForceWarning, showSplitForces && particleCount > warn.splitForces, warn.splitForces);
+  setWarn(fabricWarning,     showFabric      && particleCount > warn.fabric,      warn.fabric);
 }
 
 countSlider.addEventListener("input", () => {
   particleCount = parseInt(countSlider.value);
   countVal.textContent = particleCount;
   gravSim.init(particleCount);
+  pocketBadges = [];
   updateStats();
   updateVizWarnings();
 });
@@ -117,6 +144,14 @@ document.getElementById("split-force-toggle").addEventListener("change", e => {
 document.getElementById("fabric-toggle").addEventListener("change", e => {
   showFabric = e.target.checked;
   updateVizWarnings();
+});
+
+document.getElementById("pocket-toggle").addEventListener("change", e => {
+  showPocketBadges = e.target.checked;
+});
+
+document.getElementById("mass-toggle").addEventListener("change", e => {
+  showMassLabels = e.target.checked;
 });
 
 const gridResSlider = document.getElementById("grid-res");
@@ -152,7 +187,6 @@ function drawDensityGrid(particles) {
     // Map sim coords [-SIM_BOX/2, SIM_BOX/2) → cell index [0, cells).
     let cx = Math.floor((sx + SIM_BOX / 2) / SIM_BOX * cells);
     let cy = Math.floor((sy + SIM_BOX / 2) / SIM_BOX * cells);
-    // Clamp — should rarely trigger after wrapping, but keeps indices safe.
     cx = Math.max(0, Math.min(cells - 1, cx));
     cy = Math.max(0, Math.min(cells - 1, cy));
 
@@ -172,14 +206,13 @@ function drawDensityGrid(particles) {
       const total = m + a;
       if (total === 0) continue;
 
-      // dominance ∈ [−1, +1]: positive = matter-dominant, negative = anti-dominant.
       const dominance = (m - a) / total;
       const opacity   = Math.abs(dominance) * GRID_MAX_OPACITY;
-      if (opacity < 0.01) continue; // nearly equal — leave transparent
+      if (opacity < 0.01) continue;
 
       ctx.fillStyle = dominance > 0
-        ? `rgba(68, 136, 255, ${opacity})`   // blue for matter
-        : `rgba(255,  68,  68, ${opacity})`; // red for antimatter
+        ? `rgba(68, 136, 255, ${opacity})`
+        : `rgba(255,  68,  68, ${opacity})`;
 
       ctx.fillRect(cx * cellW, cy * cellH, cellW, cellH);
     }
@@ -214,7 +247,6 @@ function drawForceLines(particles, forces) {
     const fmag = Math.sqrt(fx * fx + fy * fy);
     if (fmag < 1e-10) continue;
 
-    // Logarithmic magnitude → canvas pixels so wide dynamic range stays legible.
     const displayLen = Math.min(Math.log1p(fmag * FORCE_LOG_SCALE) * 10, FORCE_MAX_PX);
     if (displayLen < 1.5) continue;
 
@@ -315,15 +347,11 @@ function drawLineSegT(x1, y1, x2, y2, t0, t1) {
 }
 
 // drawFabric renders force-pair connections as a woven mesh.
-// Lines with higher index draw "over"; lower index stop just before each
-// crossing, leaving a small gap — producing depth without z-buffering.
-// Above WEAVE_CAP segments the weave is skipped to keep the frame rate acceptable.
 function drawFabric(data) {
   const stride = 5;
   const count  = data.length / stride;
   if (count === 0) return;
 
-  // Convert all pairs to canvas coords up front.
   const segs = new Array(count);
   for (let i = 0; i < count; i++) {
     const [x1, y1] = simToCanvas(data[i * stride],     data[i * stride + 1]);
@@ -331,7 +359,6 @@ function drawFabric(data) {
     segs[i] = { x1, y1, x2, y2, kind: data[i * stride + 4] };
   }
 
-  // Compute pairwise intersections when the segment count is manageable.
   const WEAVE_CAP = 600;
   const weave = count <= WEAVE_CAP;
   const isects = weave ? segs.map(() => []) : null;
@@ -344,8 +371,8 @@ function drawFabric(data) {
         const ti = segmentIntersect(ax, ay, bx, by, cx, cy, dx, dy);
         if (ti !== null) {
           const tj = segmentIntersect(cx, cy, dx, dy, ax, ay, bx, by);
-          isects[i].push({ t: ti, over: false }); // i < j → i goes under
-          isects[j].push({ t: tj, over: true  }); // j > i → j goes over
+          isects[i].push({ t: ti, over: false });
+          isects[j].push({ t: tj, over: true  });
         }
       }
     }
@@ -358,9 +385,9 @@ function drawFabric(data) {
   for (let i = 0; i < count; i++) {
     const { x1, y1, x2, y2, kind } = segs[i];
     ctx.strokeStyle =
-      kind === 1 ? "rgba(68,136,255,0.65)"  // matter-matter: blue
-    : kind === 2 ? "rgba(255,68,68,0.65)"   // anti-anti:     red
-    :              "rgba(255,190,60,0.65)";  // matter-anti:   amber
+      kind === 1 ? "rgba(68,136,255,0.65)"
+    : kind === 2 ? "rgba(255,68,68,0.65)"
+    :              "rgba(255,190,60,0.65)";
 
     if (!weave || isects[i].length === 0) {
       ctx.beginPath();
@@ -370,9 +397,8 @@ function drawFabric(data) {
       continue;
     }
 
-    // Draw with weave: "under" segments clip at crossing; "over" draw through.
     const totalLen = Math.hypot(x2 - x1, y2 - y1);
-    const gapHalf  = totalLen > 0 ? 3 / totalLen : 0; // 3 px half-gap
+    const gapHalf  = totalLen > 0 ? 3 / totalLen : 0;
 
     let prevT = 0;
     for (const { t, over } of isects[i]) {
@@ -380,7 +406,6 @@ function drawFabric(data) {
         drawLineSegT(x1, y1, x2, y2, prevT, Math.max(prevT, t - gapHalf));
         prevT = t + gapHalf;
       }
-      // "over" — just continue past the crossing, no gap needed.
     }
     if (prevT < 1) drawLineSegT(x1, y1, x2, y2, prevT, 1);
   }
@@ -389,8 +414,6 @@ function drawFabric(data) {
 }
 
 // draw renders the background layers and particles.
-// Fabric (if provided) is drawn under particles; arrow overlays are applied
-// by the loop after draw() returns so they sit on top.
 function draw(particles, fabricPairs) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -408,16 +431,13 @@ function draw(particles, fabricPairs) {
   ctx.lineTo(canvas.width, canvas.height / 2);
   ctx.stroke();
 
-  // Fabric lines drawn before particles so dots sit on top.
   if (fabricPairs) drawFabric(fabricPairs);
 
   // Flat array layout: [x, y, gcharge, mass,  x, y, gcharge, mass, ...]
   const stride  = 4;
   const n       = particles.length / stride;
-  // Dot radius scales with sqrt(mass): area proportional to mass, unchanged at mass=1.
   const MAX_DOT = dotRadius * 12;
 
-  // Batch by colour to minimise fillStyle switches.
   ctx.fillStyle = MATTER_COLOR;
   ctx.beginPath();
   for (let i = 0; i < n; i++) {
@@ -441,6 +461,111 @@ function draw(particles, fabricPairs) {
     }
   }
   ctx.fill();
+}
+
+// ---------------------------------------------------------------------------
+// Pocket badge rendering
+// ---------------------------------------------------------------------------
+
+// Absorb any new pocket events from WASM and advance badge ages.
+// Always called every frame to keep the WASM buffer drained.
+function updatePocketBadges() {
+  const raw = gravSim.getPocketEvents();
+  const count = raw.length / 3;
+  for (let i = 0; i < count; i++) {
+    pocketBadges.push({ x: raw[i * 3], y: raw[i * 3 + 1], ratio: raw[i * 3 + 2], age: 0 });
+  }
+  for (let i = pocketBadges.length - 1; i >= 0; i--) {
+    pocketBadges[i].age++;
+    if (pocketBadges[i].age >= POCKET_MAX_AGE) pocketBadges.splice(i, 1);
+  }
+  // Hard cap so old runs with many merges don't accumulate indefinitely.
+  if (pocketBadges.length > 200) pocketBadges.splice(0, pocketBadges.length - 200);
+}
+
+function drawPocketBadges() {
+  if (pocketBadges.length === 0) return;
+  ctx.save();
+  ctx.font = "bold 10px monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  for (const b of pocketBadges) {
+    const alpha = 1 - b.age / POCKET_MAX_AGE;
+    const [cx, cy] = simToCanvas(b.x, b.y);
+    const label = b.ratio.toFixed(1) + "×";
+    const tw = ctx.measureText(label).width;
+    const padX = 4, padY = 3;
+    const bw = tw + padX * 2, bh = 14;
+
+    // Badge background — amber pill.
+    ctx.fillStyle = `rgba(200, 140, 20, ${alpha * 0.88})`;
+    ctx.beginPath();
+    ctx.roundRect(cx - bw / 2, cy - bh / 2 - 12, bw, bh, 3);
+    ctx.fill();
+
+    // Badge text — dark on amber.
+    ctx.fillStyle = `rgba(20, 10, 0, ${alpha})`;
+    ctx.fillText(label, cx, cy - 12);
+  }
+
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------------------
+// Mass label / hover tooltip rendering
+// ---------------------------------------------------------------------------
+
+function drawMassInfo(particles) {
+  const stride = 4;
+  const n = particles.length / stride;
+
+  ctx.save();
+  ctx.font = "10px monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+
+  // Persistent labels: only for particles with mass > 2 (merged at least twice).
+  if (showMassLabels) {
+    let drawn = 0;
+    for (let i = 0; i < n && drawn < 80; i++) {
+      const mass = particles[i * stride + 3];
+      if (mass < 3) continue;
+      const [cx, cy] = simToCanvas(particles[i * stride], particles[i * stride + 1]);
+      const r = Math.min(dotRadius * 12, dotRadius * Math.sqrt(mass));
+      const gc = particles[i * stride + 2];
+      ctx.fillStyle = gc > 0 ? "rgba(160, 190, 255, 0.85)" : "rgba(255, 150, 150, 0.85)";
+      ctx.fillText(mass.toFixed(0), cx, cy + r + 2);
+      drawn++;
+    }
+  }
+
+  // Hover tooltip: nearest particle within 20 canvas pixels.
+  if (mouseCanvasX >= 0) {
+    let closestIdx = -1;
+    let closestDist = 20;
+    for (let i = 0; i < n; i++) {
+      const [px, py] = simToCanvas(particles[i * stride], particles[i * stride + 1]);
+      const d = Math.hypot(px - mouseCanvasX, py - mouseCanvasY);
+      if (d < closestDist) { closestDist = d; closestIdx = i; }
+    }
+    if (closestIdx >= 0) {
+      const mass = particles[closestIdx * stride + 3];
+      const [px, py] = simToCanvas(particles[closestIdx * stride], particles[closestIdx * stride + 1]);
+      const label = "m=" + mass.toFixed(1);
+      ctx.font = "11px monospace";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "bottom";
+      const tw = ctx.measureText(label).width;
+      const bx = px + 8, by = py - 4;
+      ctx.fillStyle = "rgba(18, 18, 32, 0.85)";
+      ctx.fillRect(bx - 2, by - 14, tw + 8, 15);
+      ctx.fillStyle = "#d0d8ff";
+      ctx.fillText(label, bx + 2, by);
+    }
+  }
+
+  ctx.restore();
 }
 
 // ---------------------------------------------------------------------------
@@ -476,13 +601,20 @@ function loop() {
   }
 
   const particles   = gravSim.getParticles();
-  const fabricPairs = showFabric      ? gravSim.getFabricPairs(FABRIC_THRESHOLD) : null;
+  const fabricPairs = showFabric ? gravSim.getFabricPairs(FABRIC_THRESHOLD) : null;
   draw(particles, fabricPairs);
-  // Arrow overlays drawn after particles so they sit on top.
+
+  // Arrow overlays sit on top of particles.
   if (showForceLines)  drawForceLines(particles, gravSim.getForces());
   if (showSplitForces) drawSplitForces(particles, gravSim.getSplitForces());
 
-  // Update stats every 10 frames to avoid DOM churn.
+  // Pocket events — always drain WASM buffer, conditionally render.
+  updatePocketBadges();
+  if (showPocketBadges) drawPocketBadges();
+
+  // Mass labels and hover tooltip.
+  if (showMassLabels || mouseCanvasX >= 0) drawMassInfo(particles);
+
   if (frameCount++ % 10 === 0) {
     updateStats();
   }
@@ -496,7 +628,11 @@ async function boot() {
   const result = await WebAssembly.instantiateStreaming(fetch("sim.wasm"), go.importObject);
   go.run(result.instance);
 
-  // gravSim is now registered as a global by the WASM module.
+  window.GRAV_ENV = {
+    type: "wasm",
+    warn: { forceLines: 200, splitForces: 200, fabric: 200 },
+  };
+
   gravSim.init(particleCount);
   document.getElementById("loading").style.display = "none";
   updateStats();

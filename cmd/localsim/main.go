@@ -21,19 +21,25 @@ func main() {
 	workers := flag.Int("workers", runtime.NumCPU(), "goroutines for force calculation")
 	interval := flag.Int("interval", 100, "print stats every N steps")
 	box := flag.Float64("box", 800, "simulation box size")
+	dim3 := flag.Bool("3d", false, "enable 3D (O(N²) pairwise forces; Barnes-Hut step is 2D only)")
 	flag.Parse()
 
 	cfg := physics.Config{
-		N:            *n,
-		BoxSize:      *box,
-		MaxSpeed:     10,
-		ParticleMass: 1.0,
+		N:                *n,
+		BoxSize:          *box,
+		MaxSpeed:         10,
+		ParticleMass:     1.0,
+		ThreeDimensional: *dim3,
 	}
 
 	sim := physics.New(cfg)
 
-	fmt.Fprintf(os.Stderr, "localsim: n=%d workers=%d dt=%.4f box=%.0f\n",
-		*n, *workers, *dt, *box)
+	mode := "2D Barnes-Hut"
+	if *dim3 {
+		mode = "3D O(N²) pairwise"
+	}
+	fmt.Fprintf(os.Stderr, "localsim: n=%d workers=%d dt=%.4f box=%.0f  [%s]\n",
+		*n, *workers, *dt, *box, mode)
 	if *steps > 0 {
 		fmt.Fprintf(os.Stderr, "running %d steps — Ctrl-C to stop early\n\n", *steps)
 	} else {
@@ -60,7 +66,11 @@ func main() {
 		default:
 		}
 
-		sim.StepConcurrent(*dt, *workers)
+		if *dim3 {
+			sim.Step3D(*dt, *workers)
+		} else {
+			sim.StepConcurrent(*dt, *workers)
+		}
 
 		if step%*interval == 0 {
 			elapsed := time.Since(start)

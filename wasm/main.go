@@ -108,6 +108,22 @@ func getForces(_ js.Value, _ []js.Value) any {
 	return buf
 }
 
+// getPocketEvents() — returns Float64Array stride 3: [x, y, ratio, ...]
+// Events are drained — each event appears exactly once; call every frame to keep the buffer clear.
+func getPocketEvents(_ js.Value, _ []js.Value) any {
+	if sim == nil {
+		return js.Global().Get("Float64Array").New(0)
+	}
+	events := sim.DrainPocketEvents()
+	buf := js.Global().Get("Float64Array").New(len(events) * 3)
+	for i, e := range events {
+		buf.SetIndex(i*3+0, e.X)
+		buf.SetIndex(i*3+1, e.Y)
+		buf.SetIndex(i*3+2, e.Ratio)
+	}
+	return buf
+}
+
 // getStats() — returns a plain JS object with running counters.
 func getStats(_ js.Value, _ []js.Value) any {
 	if sim == nil {
@@ -137,13 +153,14 @@ func getStats(_ js.Value, _ []js.Value) any {
 
 func main() {
 	js.Global().Set("gravSim", js.ValueOf(map[string]any{
-		"init":           js.FuncOf(initSim),
-		"step":           js.FuncOf(step),
-		"getParticles":   js.FuncOf(getParticles),
-		"getForces":      js.FuncOf(getForces),
-		"getSplitForces": js.FuncOf(getSplitForces),
-		"getFabricPairs": js.FuncOf(getFabricPairs),
-		"getStats":       js.FuncOf(getStats),
+		"init":             js.FuncOf(initSim),
+		"step":             js.FuncOf(step),
+		"getParticles":     js.FuncOf(getParticles),
+		"getForces":        js.FuncOf(getForces),
+		"getSplitForces":   js.FuncOf(getSplitForces),
+		"getFabricPairs":   js.FuncOf(getFabricPairs),
+		"getPocketEvents":  js.FuncOf(getPocketEvents),
+		"getStats":         js.FuncOf(getStats),
 	}))
 
 	// Keep the WASM module alive — the runtime requires main() to block.

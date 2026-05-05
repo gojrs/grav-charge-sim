@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Aperture — Wave Field Steering Phase A</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0f;
+      color: #d0d0e0;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #top-bar {
+      display: flex;
+      align-items: baseline;
+      gap: 20px;
+      padding: 8px 16px;
+      background: #12121e;
+      border-bottom: 1px solid #2a2a44;
+      flex-shrink: 0;
+    }
+    #top-bar h1 { font-size: 13px; color: #8080c0; }
+    #top-bar .sub { font-size: 11px; color: #404058; }
+    #status-msg { margin-left: auto; font-size: 11px; color: #606080; }
+
+    #main-area { flex: 1; display: flex; overflow: hidden; }
+
+    #controls {
+      width: 210px;
+      background: #0c0c16;
+      border-right: 1px solid #2a2a44;
+      padding: 12px;
+      overflow-y: auto;
+      flex-shrink: 0;
+      font-size: 12px;
+    }
+
+    .ctrl-section { margin-bottom: 16px; }
+    .ctrl-label {
+      color: #505070;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      border-bottom: 1px solid #1e1e30;
+      padding-bottom: 3px;
+      margin-bottom: 8px;
+    }
+    .ctrl-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 7px;
+      color: #8080a0;
+    }
+    .ctrl-row label { flex: 1; }
+    .ctrl-row input[type=number] {
+      width: 72px;
+      background: #1a1a2c;
+      border: 1px solid #3a3a60;
+      color: #c0c0ff;
+      padding: 2px 5px;
+      font-family: monospace;
+      font-size: 12px;
+      border-radius: 2px;
+    }
+    .ctrl-note { font-size: 10px; color: #404058; margin-bottom: 8px; line-height: 1.4; }
+
+    .ctrl-row input[type=checkbox] { width: auto; margin-left: 4px; }
+
+    button {
+      width: 100%;
+      background: #1e1e38;
+      color: #c0c0e0;
+      border: 1px solid #3a3a60;
+      padding: 5px 0;
+      cursor: pointer;
+      font-family: monospace;
+      font-size: 12px;
+      border-radius: 3px;
+      margin-bottom: 6px;
+    }
+    button:hover { background: #2a2a50; }
+    button:disabled { opacity: 0.4; cursor: default; }
+    button.primary { border-color: #5050a0; color: #9090e0; }
+    button.primary:hover:not(:disabled) { background: #222248; }
+    #btn-clear { color: #605060; border-color: #302030; }
+    #btn-clear:hover { background: #1a1228; }
+
+    #canvas-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    #canvas-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      overflow: hidden;
+    }
+    canvas { display: block; }
+
+    #results-bar {
+      flex-shrink: 0;
+      background: #0e0e18;
+      border-top: 1px solid #1e1e30;
+      padding: 6px 16px;
+      font-size: 11px;
+      color: #606080;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .run-tag { display: inline-flex; align-items: center; gap: 5px; }
+    .run-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+    #footer {
+      flex-shrink: 0;
+      text-align: center;
+      padding: 4px 16px;
+      background: #0a0a0f;
+      border-top: 1px solid #1a1a2a;
+      font-size: 10px;
+      color: #303048;
+    }
+  </style>
+</head>
+<body>
+
+<div id="top-bar">
+  <h1>Aperture — Wave Field Steering Phase A</h1>
+  <span class="sub">single aperture · N-body gun · surface wave emitters · y-only force</span>
+  <span id="status-msg">Ready</span>
+</div>
+
+<div id="main-area">
+
+  <div id="controls">
+
+    <div class="ctrl-section">
+      <div class="ctrl-label">Run</div>
+      <button id="btn-single" class="primary">Run single</button>
+      <button id="btn-sweep" class="primary">Run 2D sweep (24)</button>
+      <button id="btn-clear">Clear results</button>
+    </div>
+
+    <div class="ctrl-section">
+      <div class="ctrl-label">Aperture</div>
+      <div class="ctrl-row">
+        <label>Half-width</label>
+        <input type="number" id="inp-hw" value="2.5" min="0.5" max="20" step="0.5">
+      </div>
+      <div class="ctrl-row">
+        <label>Wall X</label>
+        <input type="number" id="inp-wallx" value="50" min="10" max="200">
+      </div>
+    </div>
+
+    <div class="ctrl-section">
+      <div class="ctrl-label">Shots</div>
+      <div class="ctrl-row">
+        <label>Steps/shot</label>
+        <input type="number" id="inp-steps" value="10" min="1" max="10000">
+      </div>
+      <div class="ctrl-row">
+        <label>Count</label>
+        <input type="number" id="inp-shots" value="10000" min="100" max="500000">
+      </div>
+    </div>
+
+    <div class="ctrl-section">
+      <div class="ctrl-label">Gun oscillation</div>
+      <div class="ctrl-row">
+        <label>Init vel Y</label>
+        <input type="number" id="inp-vel" value="5" min="0.1" max="30" step="0.1">
+      </div>
+      <div class="ctrl-row">
+        <label>Anchor mass</label>
+        <input type="number" id="inp-amass" value="500" min="10" max="5000">
+      </div>
+      <div class="ctrl-row">
+        <label>Anchor dist</label>
+        <input type="number" id="inp-adist" value="30" min="5" max="100">
+      </div>
+    </div>
+
+    <div class="ctrl-section">
+      <div class="ctrl-label">Emitter</div>
+      <div class="ctrl-note">Surface wave emitters at aperture edges. y-only force model. ω_emit ≈ 2.83× gun.</div>
+      <div class="ctrl-row">
+        <label>Strength</label>
+        <input type="number" id="inp-strength" value="10" min="0.001" max="10000" step="any">
+      </div>
+      <div class="ctrl-row">
+        <label>Falloff rate</label>
+        <input type="number" id="inp-falloff" value="1.0" min="0.1" max="5" step="0.1">
+      </div>
+      <div class="ctrl-row">
+        <label>Anchor dist</label>
+        <input type="number" id="inp-eadist" value="15" min="3" max="30">
+      </div>
+      <div class="ctrl-row">
+        <label>Anchor mass</label>
+        <input type="number" id="inp-eamass" value="500" min="10" max="2000">
+      </div>
+      <div class="ctrl-row">
+        <label>Emitter on</label>
+        <input type="checkbox" id="inp-emitter-on">
+      </div>
+    </div>
+
+    <div class="ctrl-section">
+      <div class="ctrl-label">Export</div>
+      <button id="btn-export">Export JSON for GC</button>
+      <button id="btn-save-pic">Save picture (PNG)</button>
+    </div>
+
+  </div>
+
+  <div id="canvas-area">
+    <div id="canvas-wrap">
+      <canvas id="hist-canvas"></canvas>
+    </div>
+    <div id="results-bar">
+      <span id="results-summary">No runs yet.</span>
+    </div>
+  </div>
+
+</div>
+
+<footer id="footer">
+  Aperture Wave Field Steering Phase A — null result expected · results to GC before interpretation
+</footer>
+
+<script src="main.js"></script>
+</body>
+</html>

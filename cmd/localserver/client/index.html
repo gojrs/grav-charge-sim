@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Grav-Charge 3D — Local</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0f;
+      color: #d0d0e0;
+      font-family: monospace;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #top-bar {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 8px 16px;
+      background: #12121e;
+      border-bottom: 1px solid #2a2a44;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+      z-index: 10;
+    }
+
+    #top-bar h1 { font-size: 13px; color: #8080c0; white-space: nowrap; }
+
+    .control-group { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+
+    button {
+      background: #1e1e38; color: #c0c0e0; border: 1px solid #3a3a60;
+      padding: 4px 12px; cursor: pointer; font-family: monospace; font-size: 12px;
+      border-radius: 3px;
+    }
+    button:hover { background: #2a2a50; }
+    button.active { background: #2a2a60; border-color: #6060c0; color: #a0a0ff; }
+
+    label { color: #8080a0; cursor: pointer; }
+    input[type=range] { width: 90px; accent-color: #6060c0; }
+    span.val  { color: #c0c0ff; min-width: 28px; display: inline-block; }
+    span.warn { color: #cc8844; font-size: 10px; }
+
+    #env-badge {
+      background: #0f1f0f;
+      border: 1px solid #1a3a1a;
+      color: #60b060;
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+
+    #right-nav { margin-left: auto; }
+
+    #stats-bar {
+      display: flex;
+      gap: 24px;
+      padding: 5px 16px;
+      background: #0e0e18;
+      border-bottom: 1px solid #1e1e30;
+      font-size: 11px;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .stat { display: flex; gap: 6px; }
+    .stat-label       { color: #505070; }
+    .stat-matter      { color: #6699ff; }
+    .stat-anti        { color: #ff6666; }
+    .stat-annihilated { color: #ffaa44; }
+    .stat-merged      { color: #aa88ff; }
+    .stat-steps       { color: #808080; }
+
+    #renderer-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #hint {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      color: #252535;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+
+<div id="top-bar">
+  <h1>Grav-Charge 3D</h1>
+
+  <div class="control-group">
+    <button id="btn-play" class="active">Pause</button>
+    <button id="btn-reset">Reset</button>
+  </div>
+
+  <div class="control-group">
+    <label>Particles</label>
+    <input type="range" id="count" min="50" max="3000" step="50" value="500">
+    <span class="val" id="count-val">500</span>
+  </div>
+
+  <div class="control-group">
+    <label>Sphere size</label>
+    <input type="range" id="sphere-size" min="1" max="10" step="1" value="3">
+    <span class="val" id="sphere-val">3</span>
+  </div>
+
+  <div class="control-group">
+    <button id="btn-forces">Force lines</button>
+    <span class="warn" id="force-warning"></span>
+  </div>
+
+  <div class="control-group">
+    <button id="btn-fabric">Fabric</button>
+    <span class="warn" id="fabric-warning"></span>
+  </div>
+
+  <div class="control-group" id="right-nav">
+    <span id="env-badge">Local · Go · <span id="env-workers">…</span> workers</span>
+  </div>
+</div>
+
+<div id="stats-bar">
+  <div class="stat"><span class="stat-label">Matter:</span><span class="stat-matter" id="s-matter">—</span></div>
+  <div class="stat"><span class="stat-label">Antimatter:</span><span class="stat-anti" id="s-anti">—</span></div>
+  <div class="stat"><span class="stat-label">Annihilated:</span><span class="stat-annihilated" id="s-ann">—</span></div>
+  <div class="stat"><span class="stat-label">Merged:</span><span class="stat-merged" id="s-merged">—</span></div>
+  <div class="stat"><span class="stat-label">Steps:</span><span class="stat-steps" id="s-steps">—</span></div>
+</div>
+
+<div id="renderer-wrap">
+  <div id="hint">drag to orbit · scroll to zoom · right-drag to pan</div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

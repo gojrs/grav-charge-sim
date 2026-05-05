@@ -22,3 +22,6 @@ SIMULATION_CONTEXT.md
 notifier/config.json
 notifier/state.json
 grav-charge-notifier
+# Local research — not for public repo
+notes/
+scripts/
