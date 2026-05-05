@@ -1,0 +1,172 @@
+/* ============================================================
+   grav-charge scripts — main stylesheet
+   Edit this file and restart the server to pick up changes.
+   ============================================================ */
+
+/* ── EASY TWEAKS ─────────────────────────────────────────────
+   Change these variables to adjust colors and sizes globally.
+   ──────────────────────────────────────────────────────────── */
+:root {
+  /* base font size — everything scales from here */
+  --sz-base:   14px;
+  --sz-sm:     12px;   /* labels, breadcrumb, status */
+  --sz-xs:     11px;   /* tags, small buttons */
+  --sz-lg:     16px;   /* h1 header */
+  --sz-sec:    14px;   /* section titles */
+
+  /* backgrounds */
+  --bg:        #0d0d0d;
+  --bg2:       #141414;
+  --bg3:       #1c1c1c;
+  --bdr:       #2a2a2a;
+
+  /* text */
+  --txt:       #d0d0d0;
+  --dim:       #666;
+  --label:     #999;   /* th headers, meta-labels */
+
+  /* accents */
+  --acc:       #4a9eff;   /* links, nav, section titles */
+  --grn:       #4aff8a;   /* success / save */
+  --red:       #ff4a4a;   /* error / delete */
+  --yel:       #ffd84a;   /* sweep / warning */
+
+  /* note content palette */
+  --note-h:    #7ec8e3;   /* note headings */
+  --note-txt:  #b5d99c;   /* note body text */
+  --note-code: #4afff0;   /* inline code */
+
+  /* json syntax */
+  --json-key:  #7ec8e3;
+  --json-str:  #b5d99c;
+  --json-num:  #f0c060;
+  --json-bool: #e06c75;
+
+  --fnt: 'Courier New', Courier, monospace;
+}
+
+/* ── reset ───────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── base ────────────────────────────────────────────────────── */
+body { background: var(--bg); color: var(--txt); font-family: var(--fnt); font-size: var(--sz-base); }
+#app { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ── header ──────────────────────────────────────────────────── */
+header { background: var(--bg2); border-bottom: 1px solid var(--bdr);
+         padding: 10px 18px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+header h1 { font-size: var(--sz-lg); color: var(--acc); letter-spacing: 0.04em; white-space: nowrap; }
+nav { display: flex; gap: 6px; }
+nav button { border: 1px solid var(--bdr); background: transparent; color: var(--dim);
+             font-family: var(--fnt); font-size: var(--sz-sm); padding: 3px 12px; cursor: pointer; }
+nav button.active, nav button:hover { color: var(--acc); border-color: var(--acc); background: #0d1a2a; }
+.breadcrumb { color: var(--dim); font-size: var(--sz-sm); margin-left: auto; }
+
+main { flex: 1; padding: 18px; }
+
+/* ── views ───────────────────────────────────────────────────── */
+.view { display: none; }
+.view.active { display: block; }
+
+/* ── section title ───────────────────────────────────────────── */
+.sec-title { color: var(--acc); font-size: var(--sz-sec); margin-bottom: 12px; }
+
+/* ── tables ──────────────────────────────────────────────────── */
+table { width: 100%; border-collapse: collapse; font-size: var(--sz-base); }
+th { color: var(--label); text-align: left; border-bottom: 1px solid var(--bdr);
+     padding: 4px 8px; font-weight: normal; }
+td { padding: 5px 8px; border-bottom: 1px solid #1a1a1a; vertical-align: middle; }
+tr:hover td { background: var(--bg2); }
+td.label-col { color: var(--txt); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+td.dim { color: var(--txt); }
+.tag { display: inline-block; font-size: var(--sz-xs); padding: 1px 6px; border-radius: 2px; margin-right: 3px; }
+.tag.saved    { background: #1a2a1a; color: var(--grn); }
+.tag.exported { background: #1a1a2a; color: var(--acc); }
+.tag.archived { background: #2a2a1a; color: var(--yel); }
+.tag.md       { background: #2a1a2a; color: #c084fc; }
+.tag.json     { background: #1a2a2a; color: var(--note-code); }
+
+/* ── buttons ─────────────────────────────────────────────────── */
+button, .btn {
+  background: var(--bg3); color: var(--acc); border: 1px solid var(--acc);
+  font-family: var(--fnt); font-size: var(--sz-sm); padding: 4px 12px; cursor: pointer;
+}
+button:hover, .btn:hover { background: #0d1a2a; }
+button:disabled { opacity: 0.35; cursor: default; }
+button.grn { color: var(--grn); border-color: var(--grn); }
+button.grn:hover { background: #0d1a0d; }
+button.red { color: var(--red); border-color: var(--red); }
+button.red:hover { background: #1a0d0d; }
+button.yel { color: var(--yel); border-color: var(--yel); }
+button.yel:hover { background: #1a1a0d; }
+button.dim { color: var(--dim); border-color: var(--bdr); }
+button.dim:hover { background: var(--bg3); }
+.btn-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+
+/* ── forms ───────────────────────────────────────────────────── */
+.field-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px 18px; margin-bottom: 16px; }
+.field { display: flex; flex-direction: column; gap: 3px; }
+.field label { color: var(--dim); font-size: var(--sz-sm); }
+.field input[type=number], .field input[type=text], .field select {
+  background: var(--bg3); color: var(--txt); border: 1px solid var(--bdr);
+  font-family: var(--fnt); font-size: var(--sz-base); padding: 4px 7px; width: 100%;
+}
+.field input:focus, .field select:focus { outline: 1px solid var(--acc); border-color: var(--acc); }
+.field-check { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.field-check label { color: var(--txt); }
+input[type=text].wide, input[type=number].wide { width: 100%; }
+textarea {
+  background: var(--bg3); color: var(--txt); border: 1px solid var(--bdr);
+  font-family: var(--fnt); font-size: var(--sz-base); padding: 8px; width: 100%; resize: vertical;
+}
+textarea:focus { outline: 1px solid var(--acc); border-color: var(--acc); }
+.fmt-toggle { display: flex; gap: 6px; margin-bottom: 10px; align-items: center; }
+.fmt-toggle span { color: var(--dim); font-size: var(--sz-sm); margin-right: 4px; }
+.fmt-btn { padding: 2px 10px; font-size: var(--sz-sm); }
+.fmt-btn.active { background: #1a2a2a; color: var(--note-code); border-color: var(--note-code); }
+
+/* ── status ──────────────────────────────────────────────────── */
+#status-bar { margin-top: 10px; min-height: 16px; font-size: var(--sz-sm); color: var(--dim); }
+#status-bar.ok  { color: var(--grn); }
+#status-bar.err { color: var(--red); }
+
+/* ── run detail ──────────────────────────────────────────────── */
+#run-detail-layout { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+canvas { border: 1px solid var(--bdr); background: #111; display: block; }
+#run-meta { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 12px; align-items: flex-start; }
+#run-meta .field { min-width: 160px; }
+.result-json {
+  flex: 1; min-width: 260px; background: var(--bg3); border: 1px solid var(--bdr);
+  padding: 10px; white-space: pre; overflow: auto; font-size: var(--sz-sm);
+  max-height: 400px; color: #b0c8e8; line-height: 1.5;
+}
+.meta-row { display: flex; gap: 8px; align-items: baseline; margin-bottom: 6px; }
+.meta-label { color: var(--label); font-size: var(--sz-base); min-width: 120px; }
+.meta-val { color: var(--txt); }
+
+/* ── note detail ─────────────────────────────────────────────── */
+#note-content {
+  background: var(--bg3); border: 1px solid var(--bdr); padding: 16px;
+  max-width: 820px; line-height: 1.7; overflow: auto; color: var(--note-txt);
+}
+#note-content h1,
+#note-content h2,
+#note-content h3 { color: var(--note-h); margin: 12px 0 6px; }
+#note-content h1 { font-size: 17px; }
+#note-content h2 { font-size: 15px; }
+#note-content h3 { font-size: 13px; }
+#note-content p  { margin-bottom: 8px; }
+#note-content ul,
+#note-content ol { margin-left: 18px; margin-bottom: 8px; }
+#note-content li { margin-bottom: 3px; }
+#note-content code { background: #222; padding: 1px 5px; color: var(--note-code); font-size: var(--sz-sm); }
+#note-content pre { background: #222; padding: 10px; margin-bottom: 8px; overflow: auto; }
+#note-content pre code { background: none; padding: 0; }
+#note-content blockquote { border-left: 2px solid var(--bdr); padding-left: 10px; color: var(--label); }
+
+/* ── json syntax ─────────────────────────────────────────────── */
+.json-key  { color: var(--json-key); }
+.json-str  { color: var(--json-str); }
+.json-num  { color: var(--json-num); }
+.json-bool { color: var(--json-bool); }
+.json-null { color: var(--dim); }
